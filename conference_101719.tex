@@ -239,7 +239,7 @@ These two types of transaction model employ different speculative timing, which 
 \begin{figure}[htbp]
     \centering
     \captionsetup[subfigure]{oneside,margin={0.3cm,0cm}}
-    \subfloat[one-shot transaction, the prepare message is a suggestive one to let the RM issue prepare commit/abort ]
+    \subfloat[one-shot transaction, the prepare message is a suggestive one to let the RM issue response commit/abort message ]
         { \includegraphics[scale=1] {figure/transaction_oneshot}  \label{fig:transaction_oneshot}  }
     \captionsetup[subfigure]{oneside,margin={0.3cm,0cm}}
     \subfloat[interactive transaction, when a RM receive a \emph{Prepare} message, transaction can prevent deterministic abort. ]
@@ -394,9 +394,9 @@ The scheduler requires to maintain dependencies to preserve the recoverability o
 Additionally, there are several design considerations and choices arisen except the correctness.
 Can lock violation easily adapt to different transaction models and 2PC?
 Violating lock at the first phase of 2PC may be superior to violating lock at the second phase because it can shorten the more critical path length.
-But the second phase violation may bear more cascade aborts which are useless work.
+But the first phase violation may bear more cascade aborts which are useless work.
 DLV permits lock violation at two points in the timeline of running transactions.
-We call these \emph{early violation} and \emph{late violation}.
+We call these \emph{early lock violation} and \emph{late lock violation}.
 
 Suppose ${H}$ is a schedule which is created by lock violation, then ${H}$ is extended by adding the lock, unlock and lock violation operations.
 We write ${H}$ by:
@@ -800,9 +800,11 @@ In gathered mode, all of the replica leaders are located in the same AZes.
 In scattered mode, the replica leaders are not located in the same AZes.
 
 \subsection{TPCC Performance Evaluation}
-Figure \ref{fig:new_order_add_terminal_gathered} shows the NewOrder performance of when adding terminal numbers of each node in the gathered  mode
-(all the TM and RMs are located in the same AZ) and scattered mode.
-(TMs and RMs are located in the different AZs).
+Figure \ref{fig:new_order_add_terminal_gathered} shows the NewOrder performance of when adding terminal numbers of each node in the gathered  mode and scattered mode.
+
+Figure \ref{fig:new_order_add_warehouse_gathered},
+Figure \ref{fig:payment_add_warehouse_gathered} shows 
+the performance of different warehouse numbers.
 
 
 \begin{figure}[htbp]
@@ -922,11 +924,12 @@ when running YCSB transactions in scattered mode}
 
 \section{Conclution}
 \label{sec:conclution}
-We extend $CLV$ to distributed transaction and evaluate its performance  on a replicated layer.
-Our distributed version ${CLV}$ is ${DLV}$.
-It dynamically decides to violate lock at the most suitable time.
+We extend $CLV$ to distributed transaction and evaluate its performance on a geo-replicated environment.
+Our distributed version ${CLV}$, i.e. ${DLV}$, can dynamically decide to violate lock at the most suitable time.
 According to our evaluation, ${DLV}$ can improve performance of contention workload for shortening critical path.
-It avoids many unnecessary dependency tracing cost and cascade abort penalty against previous work.
+${DLV}$ can adapt to different workloads.
+It minimize unnecessary dependency tracing cost and cascade abort penalty against previous work.
+
 
 
 
