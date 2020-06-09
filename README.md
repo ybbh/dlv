@@ -1,2 +1,2 @@
 # dlv
-Dynamic Lock Violation On Cloud Distributed Database System
+Dynamic Lock Violation for Fault-tolerant Distributed Database System
