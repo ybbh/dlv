@@ -17,6 +17,8 @@
 % inlined bib file
 \usepackage{filecontents}
 
+\newcommand{\pushcode}[1][1]{\hskip\dimexpr#1\algorithmicindent\relax}
+
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
@@ -434,7 +436,7 @@ If a lock violation, such as $vl_j[x]$, occurs before its victim transaction pla
 we call it an \emph{early lock violation}.
 Otherwise, we call it a \emph{late lock violation}.
 
-It was proven in \cite{a} that \emph{early lock violation} can lead to non-serializable schedules.
+It was proven previously that \emph{early lock violation} can lead to non-serializable schedules.
 When using early lock violation, we have to trace all data dependencies to ensure that the dependency graph is acyclic.
 In contrast, \emph{late lock violation} is safe, as it cannot make an acyclic dependency graph cyclic.
 Our DLV chooses to perform late lock violation only.
@@ -505,76 +507,79 @@ The non-strict scheduler needs more complex recovery algorithm to keep the corre
 Take a schedule ${H_5}$ as an example,
 
 \begin{center}
-${H_5 = w_1[x]w_1[y]r_2[x]w_2[y]a_1a_2}$
+${H_5 = w_1[x]w_2[x]a_1a_2}$
 \end{center}
 
-If transaction ${T_1}$ abort, this cause cascade abort for recoverability.
+If transaction ${T_1}$ abort, this cause ${T_2}$ cascade abort for recoverability.
 Traditional database use undo log to process recovery transaction write operations.
 Implementation undo log maybe a little bit tricky when exploiting non-strict.
 A wrong recovery expand schedule of ${T_1}$ may be like ${exp(H_5)}$,
 in which ${w^-_i[x]}$ means transaction ${T_i}$ undo its write on ${x}$.
 
 \begin{center}
-  ${exp(H_5) =  w_1[x]w_1[y]r_2[x]w_2[y]}$
-  ${w^-_1[y]w^-_1[x]c_1w^-_2[y]c_2}$
+  ${exp(H_5) =  w_1[x]w_2[x]w^-_1[x]c_1w^-_2[x]c_2}$
 \end{center}
 
+To understand why this schedule is wrong and how it can occur, lets take Table \ref{tbl:x_y_vlues} as an example.  
 Suppose the initial value of records ${x}$ and ${v}$ of are both 0.
-The value of records ${x}$, ${y}$ and the undo log formatted after executing every operations in $exp(H)$ is shown in Table~\ref{tbl:x_y_vlues}.
+The value of records ${x}$  and its undo log formatted after executing every operations in $exp(H)$ is shown in Table~\ref{tbl:x_y_vlues}.
+First, ${T_1}$ write ${x}$, and create its undo log by ${x}$'s previous value.
+Later, transaction ${T_2}$ violates ${T_1}$'s lock on ${x}$ after ${T_1}$ write its value 1.
+ ${T_2}$ overwrite ${T_1}$'s write on ${x}$ and construct its undo log by ${T_1}$'s write value.
+Transaction ${T_1}$ abort due to some reason and undo its write.
+Then ${T_2}$ also abort and undo its write by a wrong value of ${x}$, which is ${T_2}$ read from ${T_1}$.
 Finally, after the execution of this schedule, both transaction ${T_1}$ and ${T_2}$ aborts.
-The value of ${y}$ is 1, which the correct result should be the initial value 0.
+The value of ${x}$ is 1, which the correct result should be the initial value 0.
+
 
 \begin{table}[htb]
   \centering
   \begin{tabular}{|c|c|c|c|c|c|}
   \hline
-operations & x &  y & undo   \\
+operations & x & undo   \\
   \hline
   \hline
-  $w_1[x=1]$ & 1 & 0 & x=0  \\
+  $w_1[x=1]$ & 1 & x=0  \\
   \hline
-  $w_1[y=1]$ & 1 & 1 & y=0   \\
+  $w_2[x=2]$ & 2  & x=1   \\
   \hline
-  $r_2[x]$ & 1 & 1 &    \\
-  \hline
-  $w_2[y=2]$ & 1 & 2 & y=1  \\
-  \hline
-  $w^-_1[y=0]$ & 1 & 0 &   \\
-  \hline
-  $w^-_1[x=0]$ & 0 & 0 &   \\
+  $w^-_1[x=0]$ & 0  &   \\
   \hline
 
-  $c_1$ & 0 & 0 &   \\
+  $c_1$ & 0  &   \\
   \hline
-  $w^-_2[y=1]$ & 0 & 1 &    \\
+  $w^-_2[x=1]$ & 1  &    \\
   \hline
-  $c_2$ & 0 & 1 &  \\
+  $c_2$ & 1  &  \\
   \hline
   \end{tabular}
 \caption{x, y values, undo log after the execution of ${exp(H_5)}$}
 \label{tbl:x_y_vlues}
 \end{table}
 
+Transaction use lock violation can produce this type non-strict schedule.
+Transaction cannot rollback individually.
+The scheduler needs a complex algorithm to handle undo order properly without lock protection,  even when there is a transaction recovery rather than a system recovery.
 To tackle this anomaly, recovery must use a more complex algorithm such as SOT\cite{UnifyCR:journals/is/AlonsoVABASW94}.
 For schedule ${H_5}$, a correct recovery expandation may be:
 \begin{center}
-${exp^*(H_5) = w_1[x]w_1[y]r_2[x]w_2[y]w^-_2[y]c_2w^-_1[y]w^-_1[x]c_1}$
+  ${exp(H_5) =  w_1[x]w_2[x]w^-_2[x]c_2w^-_1[x]c_1}$
 \end{center}
-The schdeuler must recovery transaction by the reserve order of write operation.
-If ${x}$ and ${y}$ is on the same database node and use \emph{late lock violation}, the recovery of a transaction is simple.
-Because there is no partial failure, the transaction would commit in log order.
-No additional work is needed when system recovery using traditional Aries algorithm\cite{ARIES:journals/tods/MohanHLPS92}.
 
-However, if ${x}$ and ${y}$ are not located at the same node, this undo operation order is hard to accomplish because of partial failure.
-When using \emph{early lock violation}, there are similar problems since transaction recovery must also undo transactional operations by reserve order.
-To avoid this complexity, DLV maintains uncommitted speculative versions in memory and accepts no-steal policy when writing data.
+
+The schdeuler must rollback transaction by the reserve order of write operation.
+To avoid this complexity, 
+DLV maintains uncommitted speculative versions in memory and accepts no-steal policy when writing data.
 No-steal policy need storage cannot write uncommitted data to permanent storages.
-For most transactions would write a little data except the bulk loading ones and the modern database runs on a machine with large RAM, using no-steal policy to save memory is not necessary.
+For most transactional worlkoads would write a little data except the bulk loading ones.
+On ther other hands, the modern database runs on a machine with large RAM, using no-steal policy to save memory is not necessary.
 By no-steal and speculative versions, the database needs no undo log, transaction rollback and failure recovery would be more simple and efficient.
 DLV 's speculative version implementation is a little similar with many multi-version concurrency control scheme.
 The list is structured from the newest version to the oldest version and the last version of this list is the committed version.
-Speculation versions are always stored in main memory and needs no persistence.
-If a transaction would abort, it only needs to remove its write versions from speculative version list.
+Since speculation versions are uncommitted data, they are always stored in main memory and needs no persistence.
+And in permanent storage, there is only single version, the committed version.
+When a transaction commit, it cooperatively clean its outdated version from the version list. 
+If a transaction would abort, it only needs to remove its write versions from the speculative version list.
 
 Previously, we have discussed that a \emph{ww} dependency does not affect recoverability.
 \emph{Late lock violation}, since it has promised serializability, so it can ignore ${ww}$ and ${rw}$ dependencies and only trace ${wr}$ dependencies for recoverability.
@@ -613,12 +618,14 @@ The abort of $T_4$ does not cause ${T_6}$ cascade abort.
 
 \emph{DLV} exploit \emph{early lock violation}
 when transaction is on going even preceding transaction request its (prepare) commit.
-
+In early lock violation mode,
+if a transaction encouter a lock timeout when waiting a lock of another transaction, 
+it could violate this lock immediately.
 \emph{Early lock violation} can is more appropriate then \emph{late lock violation} when there are less cascade abort caused by non-deterministic abort.
 \emph{Early lock violation} also need more dependency tracing costs.
 Too many cascade abort can contributed to a lot of useless work.
 
-We implementation \emph{late lock violation} by adding a message round trip to prevent deterministic abort when use lock violation.
+DLV implementation \emph{late lock violation} by adding a message round trip to prevent deterministic abort when use lock violation.
 This additional message flow shows in Algorithm~\ref{alg:speculate_phase}.
 In Figure~\ref{fig:two_layers_architecture}, the message is show as dotted arrow lines.
 Before an ${RM}$ decides to replicate its prepare log, it also sends a \emph{Ready} message to ${TM}$ and tells ${TM}$ it will prepare this transaction.
@@ -641,10 +648,10 @@ ${S(i) = \{s_1(i), s_2(i), ..., s_{|S(i)|}(i)\}}$.
 A partial transaction ${t_{ij}, 1 \le j \le |S(i)|}$, is ${T_i}$'s transactional sequence operations working on shard ${s_j(i)}$.
 We define following conceptions on partial transaction ${t_{ij}}$:
 
-\emph{partial span time, ${\gamma (i, j)}$   :}
+\emph{partial span time, ${\gamma (i, j)}$}:
 ${t_{ij}}$'s \emph{partial span time} is from when ${t_{ij}}$ begin its first access operation  to its finish writing its final end log(commit or abort) on its shards.
-
-\emph{partial max lock wait time, $\delta{i, j}$, :}
+If the database saves more lock cost by violation than possible cascade abort cost, it would choose \emph{early lock violation}.
+\emph{partial max lock wait time, ${\delta(i, j)}$ }:
 The maximum waiting time on a lock of all the locks ${t_{ij}}$ acquires on its shards.
 
 \emph{partial prepare:}
@@ -681,8 +688,11 @@ The term on the lefthand side of the inequality can be considered the cost saved
 DLV use \emph{wait-die} protocol to avoid deadlock.
 At the beginning of a transaction, the transaction uses the current timestamp to generate a transaction id.
 The conflict transaction operations are queued base their transaction id's order.
-
-
+In early lock violation mode, 
+DLV would consolidating all the wait in the final wait.
+Ealy lock violation also obeys \emph{wait-die} rule.
+A transaction can only violate a lock with less transaction id.
+This approach can reduce  possible false positive abort when exploit early lock violation.
 \emph{DLV} use register and report\cite{HeckatonMVCC:journals/pvldb/LarsonBDFPZ11} to maintain dependencies.
 Every transaction context stores an in dependency transaction(${in\_dn}$) number count to record how many transactions is the transaction depend on.
 The transaction also records an out transaction set(${out\_set}$) attribute record the transactions depend on it.
@@ -702,52 +712,98 @@ Algorithm~\ref{alg:execution_phase} shows the execution phase of a transaction.
 Algorithm~\ref{alg:prepare_phase} shows the prepare phase of a transaction.
 Algorithm~\ref{alg:commit_phase} shows the commit phase of a transaction.
 Algorithm~\ref{alg:speculate_phase} shows the speculation phase of a transaction.
+
+
+\begin{algorithm}[!h]
+  \caption{Lock a key ${T}$. Read and write a key}
+  \begin{algorithmic}[1]
+  \Function{Lock}{$T,K, M, V$}
+    \State {\textbf{wait if} ${\exists}$ such ${l \in lock\_table }$,
+      \newline $CONFLICT(K, T.xid, l, L)$ \textbf{and}  
+      \newline \textbf{not} $ VIOLATABLE(K, T.xid, l, M, V)$}
+      \State \hskip2em \textbf{if}  {${T.xid > l.xid } $ \textbf{and} wait timeout}
+          \State \hskip4em  \textbf{return} nil \Comment{lock die error}
+      \State \hskip2em \textbf{end if} 
+    \State \textbf{end wait}
+
+    \ForAll {such ${l \in lock\_table}$, \\ ${VIOLATABLE(K,T.xid,l,M,V) }$ is \textbf{True}}
+        \State {${s \gets}$  transaction context retrieved by ${l.xid}$}
+        \If {${V == EARLY}$ \textbf{or} $($ ${V = LATE}$ \textbf{and} \newline 
+        ${l.lmode = WRITE}$ \textbf{and} ${L = READ}$ $)$}
+        \State {${T.vlocks \gets T.vlocks \cup l}$}
+        \If {${T.xid \notin s.out }$}
+          \State ${s.out\_set \gets s.out \cup T.xid}$
+          \State ${T.in \gets T.in + 1}$
+        \EndIf
+        \EndIf
+    \EndFor
+    \State {create lock ${l}$ if ${l' \notin lock\_table} $, \newline ${l'.xid \gets T.xid}$,  ${l'.key \gets K, l'.mode \gets M, l'.violate \gets V}$}
+    \State  \textbf{return} lock ${l'}$
+  \EndFunction
+  \label{func:lock}
+  \end{algorithmic}
+
+  \caption{Lock a key ${T}$. Read and write a key}
+  \begin{algorithmic}[1]
+  \Function{VIOLATABLE}{$T,K, L, V$}
+  \If {$CONFLICT(T, l, K, M)$ \textbf{and}\\ ${l.violate \neq NONE}$}
+  \If{${V=EARLY}$}
+    \State \textbf{return} ${T.xid > l.xid}$
+  \ElsIf{${V=LATE}$}
+    \State \textbf{return} ${l.violate = LATE}$
+  \EndIf
+\EndIf
+\State \textbf{return} \textbf{False}
+  \EndFunction
+  \label{func:violatable}
+  \end{algorithmic}
+
+  \caption{transaction T lock a key ${T}$ in ${M}$ mode, use ${V}$ violation}
+  \begin{algorithmic}[1]
+  \Function{Conflict}{$T, L, K, M$}
+    \If {${T.xid \neq l.xid}$ and ${K = l.key}$}
+      \State \textbf{return} l.lmode = WRITE \textbf{or} M = WRITE
+    \EndIf
+    \State \textbf{return} \textbf{False}
+  \EndFunction
+  \label{func:conflict}
+  \end{algorithmic}
+
+  \label{alg:lock}
+\end{algorithm}
+
+
 \begin{algorithm}[!h]
 
   \caption{Execution phase of transaction ${T}$. Read and write a key}
 
   \begin{algorithmic}[1]
-  \Function{Read}{$T,key$}
-      \State ${newest\_version \gets Head(Tuple(key).version\_list)}$
-      \If {${newest\_version}$ is created by transaction ${S}$ \newline \textbf{and} ${key}$ is ICommit locked by ${S}$ }
-        \If {${T \notin S.out\_set }$}
-          \State ${S.out\_set \gets S.out\_set \cup T}$
-          \State ${T.in\_dn \gets T.in\_dn + 1}$
-        \EndIf
-      \EndIf
-      \If {${key}$ is \emph{write} locked by transaction ${S}$}
-        \State ${S.wait \gets S.wait + 1}$
-        \State wait lock till die
-        \If {die}
-            \State ${T.no\_da \gets }$ \textbf{False}
-            \State \textbf{return} die error.
-        \EndIf
-      \EndIf
-      \If {${key}$ is \emph{IAbort} locked by transaction ${S}$}
-        \State wait lock this lock released
-      \EndIf
-      \State Lock(${T, key, Read}$)
-      \State \textbf{return} ${key}$'s value.
-
+  \Function{Read}{$T, K$}
+    \State ${l \gets LOCK(T, K, READ, T.violate)}$
+    \If{${l}$ is ${nil}$}
+      \State \textbf{return} lock failed \Comment{${T}$ will abort later}
+    \Else
+      \State ${T.locks \gets T.locks \cup l}$
+      \State {${v \gets}$  retrieve value of ${K}$ from the newest version}
+      \State \textbf{return} ${v}$
+    \EndIf
   \EndFunction
   \label{func:read}
   \end{algorithmic}
 
 
   \begin{algorithmic}[1]
-  \Function{Write}{$T,key, value$}
-    \If {${key}$ is \emph{read} or \emph{write} locked}
-      \If {${key}$ is \emph{write} locked by transaction ${S}$}
-        \State ${S.wait \gets S.wait + 1}$
-      \EndIf
-      \State wait lock till die
-      \If {die}
-        \State ${T.no\_da \gets }$ \textbf{False}
-        \State \textbf{return} die error.
-      \EndIf
-    \EndIf
-    \State Lock(${T, key, Write}$)
-    \State add a new version of ${key}$'s tuple, assign ${value}$
+  \Function{Write}{$T, K, V$}
+  \State ${l \gets LOCK(T, K, READ, T.violate)}$
+  \If{${l}$ is ${nil}$}
+    \State \textbf{return} lock failed
+    \Comment{${T}$ will abort later}
+  \Else
+    \State ${T.locks \gets T.locks \cup l}$
+    \State assign ${K}$'s newest version by value ${V}$
+    \State add tuple to ${T.write\_set}$
+    \State \textbf{return} write success
+  \EndIf
   \label{func:write}
   \EndFunction
   \end{algorithmic}
@@ -758,11 +814,24 @@ Algorithm~\ref{alg:speculate_phase} shows the speculation phase of a transaction
   \caption{Prepare phase of transaction ${T}$}
   \begin{algorithmic}[1]
   \Function{Prepare}{$T$}
-    \State wait if ${T.in\_dn > 0}$
-    \If {${T.in\_dn < 0}$}
-      \State response \emph{TM} message \emph{\{Prepare Abort\}}
-    \ElsIf {$T.in\_dn = 0$}
-      \State response \emph{TM} message \emph{\{Prepare Commit\}} \newline or \emph{\{Prepare Abort\}}
+    \ForAll {$ l \in T.locks$}
+      \State ${l.violate = PARTIAL\_PREPARE}$
+    \EndFor
+
+    \State \textbf{wait} \textbf{if} ${T.in > 0}$
+    \State \hskip1.5em \textbf{if} {${T.violate = EARLY}$ \textbf{and} wait timeout  
+    \newline ${\exists l \in T.vlocks}$, ${ T.xid < l.xid }$}
+    \State \hskip3em  write prepare abort log
+    \State \hskip3em response TM message \emph{\{Prepare Abort\}} \Comment{die}
+    \State \hskip3em \textbf{return}
+    \State \hskip1.5em \textbf{end if}
+    \State \textbf{end wait}
+    \If {${T.in < 0}$}
+      \State write prepare abort log
+      \State response \emph{TM} message \emph{\{Prepare Abort\}} \Comment{cascade}
+    \ElsIf {$T.in = 0$}
+      \State write prepare commit log
+      \State response \emph{TM} message \emph{\{Prepare Commit\}} 
     \EndIf
   \EndFunction
   \end{algorithmic}
@@ -773,14 +842,17 @@ Algorithm~\ref{alg:speculate_phase} shows the speculation phase of a transaction
   \caption{Commit phase of transaction ${T}$, commit and (cascade)abort function}
   \begin{algorithmic}[1]
   \Function{Commit}{$T$}
-    \State garbage collect old version in \newline ${Tuple(key).version\_list}$
-    \For {$ key \in T.write\_set \cup T.read\_set$}
-      \State Unlock(${T, key, Read/Write}$)
+    \State write commit log
+    \ForAll {${r \in T.write\_set}$}
+      \State make the version written by ${T}$ becomes commit version of tuple ${t}$ 
     \EndFor
-    \For {${T_{out} \in T.out\_set}$}
-      \State ${T_{out}.in\_dn \gets T_{out}.in\_dn - 1}$ \Comment{keep exactly once}
-      \If ${T_{out}.in\_dn = 0}$
-        \State report ${T_{out}.in\_dn = 0}$ \Comment{ stop waiting on function PREPARE line 2}
+    \ForAll {$ l \in T.locks$}
+      \State UNLOCK(${l}$)
+    \EndFor
+    \For {${t \in T.out}$}
+      \State ${t.in \gets t.in - 1}$ \Comment{keep exactly once}
+      \If {${t.in = 0}$}
+        \State report ${t.in = 0}$ \Comment{stop waiting on this transaction, in line 2 of function PREPARE}
       \EndIf
     \EndFor
     \State response \emph{TM} message \emph{\{Commit ACK\}}
@@ -789,34 +861,23 @@ Algorithm~\ref{alg:speculate_phase} shows the speculation phase of a transaction
   \end{algorithmic}
   \begin{algorithmic}[1]
   \Function{ABORT}{$T$}
-    \State \textbf{call} CASCADE(T)
-    \For {$ key \in T.write\_set \cup T.read\_set$}
-      \State Unlock(${T, key, Read/Write}$)
+  \State write abort log
+  \ForAll {${r \in T.write\_set}$}
+    \State remove the version written by ${T}$ from verion list of ${r}$
+\EndFor
+
+    \ForAll {$ l \in T.locks$}
+      \State UNLOCK(${l}$)
+    \EndFor
+    \For {${t \in T.out}$}
+      \State ${t.in \gets -\infty }$
+      \State report ${t.in < 0}$ \Comment{stop waiting on this transaction, in line 2 of function PREPARE}
     \EndFor
     \State response \emph{TM} message \emph{\{Abort ACK\}}
     \label{func:abort}
   \EndFunction
   \end{algorithmic}
-  \begin{algorithmic}[1]
-    \Function{CASCADE}{$T$}
-      \State ${T.in\_dn \gets -\infty }$
-      \For {$ key \in T.write\_set$}
-        \If {$key$ is ${ICommit}$ locked by ${T}$}
-          \State ModifyLock($T, key, IAbort$)
-        \EndIf
-        \For {${version \in Tuple(key).version\_list}$}
-          \If {${version}$ is created by ${T}$}
-            \State remove ${version}$ from list
-            \State \textbf{break}
-          \EndIf
-        \EndFor
-      \EndFor
-      \For {${T_{out} \in T.out\_set}$}
-        \State \textbf{call} CASCADE(${T_{out}}$)
-      \EndFor
-      \label{func:cascade}
-    \EndFunction
-  \end{algorithmic}
+
   \label{alg:commit_phase}
 \end{algorithm}
 
