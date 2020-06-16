@@ -23,7 +23,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
-\title{Dynamic Lock Violation for Fault-tolerant Distributed Database System}
+\title{Exploit Lock Violation for Fault-tolerant Distributed Database System}
 
 
 \author{\IEEEauthorblockN{Hua Guo}
@@ -50,8 +50,8 @@ Without a careful design, synchronization could amplify transactions' lock durat
 Speculative techniques, such as Controlled Lock Violation (CLV) and Early Lock Release (ELR), prove to be effective in shortening lock duration and boosting performance of transaction processing.
 An intuitive idea is to use these techniques to optimize geo-replicated distributed databases.
 In this paper, we show that direct application of speculation is often unhelpful in a distributed environment.
-Instead, we introduce Dynamic Lock Violation (DLV), a speculative technique for geo-replicated distributed databases.
-DLV chooses the right time to conduct lock violation, so that it can achieve good performance without incurring severe side effects.
+Instead, we introduce Distributed Lock Violation (DLV), a speculative technique for geo-replicated distributed databases.
+DLV minimize the cost of to conduct lock violation, so that it can achieve good performance without incurring severe side effects.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -101,7 +101,7 @@ NuoDB \cite{NuoDB}, CockroachDB \cite{CockroachDB}, TiDB \cite{TiDB}, etc.
 \begin{figure}[htbp]
   \centerline{\includegraphics[scale=0.62]{figure/message_flow.pdf}}
   \caption{The message flow and lock holding critical path when the DBMS uses S2PL for concurrency control and 2PC as the commit protocol.
-The dash arrow lines represents the messages introduced by Dynamic Lock Violation (DLV). The red lines represent the critical paths of S2PL.
+The dash arrow lines represents the messages introduced by Distributed Lock Violation (DLV). The red lines represent the critical paths of S2PL.
 The green dash lines represent the critical paths of DLV.}
   \label{fig:two_layers_architecture}
 \end{figure}
@@ -133,7 +133,7 @@ These techniques can be extended to a distributed environment.
 %Figure \ref{fig:log_write_latency} shows the log write latency of different environment(TODO... experiments setting).
 
 \begin{figure}[htbp]
-  \centerline{\includegraphics[scale=0.4]{figure/log_write_latency.png}}
+  \centerline{\includegraphics[scale=0.3]{figure/log_write_latency.png}}
   \caption{log write latency in different environment}
   \label{fig:log_write_latency}
 \end{figure}
@@ -151,7 +151,7 @@ On the contrary, lock violation at the second phase costs less in dependency tra
 On the other hand, not all transactions can benefit from CLV or ELR, e.g., workload with little conflict.
 It unnecessary and even harmful to apply speculation to all cases.
 
-In this paper, we propose a technique called Dynamic Lock Violation (DLV) to enhance the performance of geo-replicated distributed DBMS.
+In this paper, we propose a technique called Distributed Lock Violation (DLV) to enhance the performance of geo-replicated distributed DBMS.
 DLV decides the best time to perform lock violation by looking at runtime statistic information.
 It introduces much less penalty compared to previous implementation \cite{CLV:conf/sigmod/GraefeLKTV13}.
 
@@ -614,7 +614,7 @@ The abort of $T_4$ does not cause ${T_6}$ cascade abort.
 \label{fig:versions_example}
 \end{figure}
 
-\subsection {Dynamic Decide Early or Late Violation}
+\subsection {Lock Violation Time}
 
 \emph{DLV} exploit \emph{early lock violation}
 when transaction is on going even preceding transaction request its (prepare) commit.
@@ -730,7 +730,6 @@ Algorithm~\ref{alg:speculate_phase} shows the speculation phase of a transaction
         \State {${s \gets}$  transaction context retrieved by ${l.xid}$}
         \If {${V == EARLY}$ \textbf{or} $($ ${V = LATE}$ \textbf{and} \newline 
         ${l.lmode = WRITE}$ \textbf{and} ${L = READ}$ $)$}
-        \State {${T.vlocks \gets T.vlocks \cup l}$}
         \If {${T.xid \notin s.out }$}
           \State ${s.out\_set \gets s.out \cup T.xid}$
           \State ${T.in \gets T.in + 1}$
@@ -819,13 +818,6 @@ Algorithm~\ref{alg:speculate_phase} shows the speculation phase of a transaction
     \EndFor
 
     \State \textbf{wait} \textbf{if} ${T.in > 0}$
-    \State \hskip1.5em \textbf{if} {${T.violate = EARLY}$ \textbf{and} wait timeout  
-    \newline ${\exists l \in T.vlocks}$, ${ T.xid < l.xid }$}
-    \State \hskip3em  write prepare abort log
-    \State \hskip3em response TM message \emph{\{Prepare Abort\}} \Comment{die}
-    \State \hskip3em \textbf{return}
-    \State \hskip1.5em \textbf{end if}
-    \State \textbf{end wait}
     \If {${T.in < 0}$}
       \State write prepare abort log
       \State response \emph{TM} message \emph{\{Prepare Abort\}} \Comment{cascade}
@@ -944,6 +936,30 @@ In gathered mode, all of the replica leaders are located in the same AZes.
 In scattered mode, the replica leaders are not located in the same AZes.
 
 \subsection{TPCC Performance Evaluation}
+
+First we simulate log cost on different an LAN environment by adding log write latency.
+Figure \ref{fig:new_order_add_log_cost} shows the throughput and abort rate of TPCC NewOrder procedure on 4 shards. 
+Every shards replicated transactional log with user setting latency time.
+The result shows that late violation can perform better when there is a large log replicaiton latency.
+
+\begin{figure}[htbp]
+  \centering
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder TPM]
+      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder abort]
+      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+\caption{throughput and abort rate of
+different terminal different log write costs}
+\label{fig:new_order_add_log_cost}
+\end{figure}
+
+
+In the following experiments,
+we all run test on a real replication environment.
+
 Figure \ref{fig:new_order_add_terminal_gathered} shows the NewOrder performance of when adding terminal numbers of each node in the gathered  mode and scattered mode.
 
 Figure \ref{fig:new_order_add_warehouse_gathered},
@@ -955,14 +971,13 @@ the performance of different warehouse numbers.
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_gather_tpm} \label{fig:new_order_add_terminal_gathered:tpm}}
+      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_gather_abort} \label{fig:new_order_add_terminal_gathered:abort}}
+      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
 \caption{throughput and abort rate of
-different terminal number of each node
-when running TPCC NewOrder transactions in gathered mode(TODO .. need more terminals, 4 is too small)}
+different warehouse numbers}
 \label{fig:new_order_add_terminal_gathered}
 \end{figure}
 
@@ -971,7 +986,7 @@ when running TPCC NewOrder transactions in gathered mode(TODO .. need more termi
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Warehouse_gather_tpm} \label{fig:new_order_add_warehouse_gathered:tpm}}
+      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:new_order_add_warehouse_gathered:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort]
       { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Warehouse_gather_abort} \label{fig:new_order_add_warehouse_gathered:abort}}
