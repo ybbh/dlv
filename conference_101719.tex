@@ -394,7 +394,7 @@ As we can see, by violating strictness, ${H_2}$  enables a higher degree of conc
 \end{figure}
 
 
-%To realize such a schedule, ${T_1}$ must release its lock or mark it as violatable before it commits.
+%To realize such a schedule, ${T_1}$ must release its lock or mark it as violation before it commits.
 
 The drawback of strictness is amplified in a geo-replicated and distributed database.
 The commit of a transaction in such a database usually involve a lot of work, including multiple rounds of communication across the WAN.
@@ -783,9 +783,10 @@ After the transaction access the key,
 EnableLkV would be called to enable this lock violable if the current database is in DLV0 setting. 
 
 Algorithm~\ref{alg:prepare_phase} describes the prepare phase of a transaction.
-When using DLV1 setting, 
-transaction 
-The transaction context would wait on its in-dependency.
+When DB use DLV1 configuration, 
+transaction enable let its lock violable in early violation scheme.
+If DLV1x is setting, ${RM}$ issue ${TM}$ a \emph{Ready} message to tell ${TM}$ this ${RM}$ is going to prepare.
+In the next, the transaction context would wait on its in-dependency.
 The transaction context cannot enter the prepare phase if its ${in}$ value is greater than 0, which stands it has in dependency transaction.
 Once ${in}$ become 0, the transaction processing can go to its prepare phase.
 In some situations, there may be cascade abort.
@@ -1019,7 +1020,7 @@ In which one node was used to issue transaction requests, the others acted as da
 Each server had 2 CPU core with 2.5GHz
 base frequency and 3.2 GHz turbo frequency, 8GB RAM, running Ubuntu 18.04.
 The data were partitioned by 4 shards, each shard had 3 replicas and the logs were replicated across 3 AZs.
-These 3 AZs were located at Heyuan South China, Hangzhou Southeast China and Zhangjiakou North China.
+These 3 AZs were located at Heyuan South China, Hangzhou East China and Zhangjiakou North China.
 The internal network bandwidth of each AZ was 1Gbps.
 Every AZ had a full data copy of each shard.
 Each transaction would retry after 3 seconds if aborted.
