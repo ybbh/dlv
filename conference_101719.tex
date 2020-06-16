@@ -155,7 +155,8 @@ On the other hand, not all transactions can benefit from CLV or ELR, e.g., workl
 It unnecessary and even harmful to apply speculation to all cases.
 
 In this paper, we propose a technique called Distributed Lock Violation (DLV) to enhance the performance of geo-replicated distributed DBMS.
-DLV decides the best time to perform lock violation by looking at runtime statistic information.
+DLV performance lock violation and minimize the cascade abort rate and dependency tracing cost.
+%DLV decides the best time to perform lock violation by looking at runtime statistic information.
 It introduces much less penalty compared to previous implementation \cite{CLV:conf/sigmod/GraefeLKTV13}.
 
 The remainder of this paper is organized as follows.
@@ -469,7 +470,7 @@ While early lock violation allows us to harness more concurrency, it may cause a
 First, early lock violation can result in non-serializable schedules. This has been illustrated by ${H_3}$ in Fig.   \ref{fig:schedule_abort_example}.
 In contrast, \emph{late lock violation} is safe. If a transaction can only violate the locks of transactions that are ready to commit, it cannot result in cyclic data dependencies.
 Second, early lock violation faces a much higher chance of cascade abort. In late lock violation, only non-deterministic aborts can cause cascade abort, as no lock can be violated before deterministic aborts (since the transaction has already been permitted to commit). In early lock violation, all aborts can cause cascade abort.
-As both types of lock violation have their advantages, our mechanism of Dynamic Lock Violation (DLV) integrates them to achieve the best results.
+%As both types of lock violation have their advantages, our mechanism of Dynamic Lock Violation (DLV) integrates them to achieve the best results.
 
 %When ${T_1}$ abort for non-serializable, ${T_2}$ must cascade abort to avoid anomaly.
 %Assume a lock violation scheduler creates schedule ${H_3}$.
@@ -666,7 +667,7 @@ DLV aims to prevent data synchronization from coinciding with the lock holding t
 
 In \emph{late lock violation}, a transaction allows its lock to be violated only after all $RM$s confirm that they can commit.
 Therefore, it requires an additional message round trip between the $TM$ and the $RM$s before the commit starts.
-In \emph{early lock violation}, each $RM$ can autonomously decide to when to permit lock violation. 
+%In \emph{early lock violation}, each $RM$ can autonomously decide to when to permit lock violation. 
 It saves a message round trip, but faces a higher chance of cascade abort.
 We implement four types of DLV scheme which are different on violation time, defined as is the following:
 
