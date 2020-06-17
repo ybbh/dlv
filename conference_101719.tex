@@ -1044,10 +1044,13 @@ On a low replication latency environment, DLV cannot improve performance.
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
+      { \includegraphics[scale=0.40] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
+      { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+      \subfloat[NewOrder TPM Ratio]
+          { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Ratio_gather} \label{fig:new_order_add_log_cost:ratio}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
 \caption{throughput and abort rate of
 different terminal different log write costs}
@@ -1077,11 +1080,14 @@ DLV1x perform better than other DLV scheme.
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
+      { \includegraphics[scale=0.40] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
+
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}}
+      { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}}
 
+    \subfloat[NewOrder TPM Ratio]
+      { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Ratio_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:ratio}}
 \caption{throughput and abort rate of
 different warehouse numbers}
 \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather}
@@ -1092,10 +1098,15 @@ different warehouse numbers}
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder throughput]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}}
+      { \includegraphics[scale=0.40] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
+  
   \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
+      { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
+
+    \subfloat[NewOrder abort rate]
+      { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_gather} \label{fig:new_order_add_terminal_gathered:ratio}}
+
 
 \caption{throughput and abort rate when adding terminal number of each shard, in gathered mode}
 \label{fig:new_order_add_terminal_gathered}
@@ -1106,10 +1117,13 @@ different warehouse numbers}
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder throughput]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}}
+      { \includegraphics[scale=0.40] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}}
+      { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}}
+
+      \subfloat[NewOrder TPM Ratio]
+      { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_scatter} \label{fig:new_order_add_terminal_scattered:ratio}}
 
 \caption{throughput and abort rate when adding terminal number of each shard, in scattered mode}
 \label{fig:new_order_add_terminal_scattered}
@@ -1133,15 +1147,17 @@ The result shows DLV1x scales well on different degrees of data skew.
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB workload throughput]
-      { \includegraphics[scale=0.25] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}}
+      { \includegraphics[scale=0.40] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB workload abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}}
+      { \includegraphics[scale=0.40]{figure/plot_ycsb_add_Theta_Theta_Abort_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}}
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+      \subfloat[YCSB workload abort rate]
+          { \includegraphics[scale=0.40]{figure/plot_ycsb_add_Theta_Theta_Ratio_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:ratio}}
 
 \caption{YCSB performance, throughput and abort rate when adding theta, in scattered mode}
 \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather}
 \end{figure}
-
 
 \section{Conclution}
 \label{sec:conclution}
