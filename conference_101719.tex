@@ -1023,7 +1023,7 @@ Our experiments were performed on a cluster of 13 Aliyun ecs.g6.large servers.
 Each server was equipped with 2 virtual CPU cores of 2.5GHz and a 8GB RAM. The OS was Ubuntu 18.04.
 Twelve of the servers were used to deploy the transaction engine.
 The data was partitioned by into 4 shards. Each shard had 3 replicas spread across 3 AZs, 
-which were located at Heyuan  (south China), Hangzhou (east China) and Zhangjiakou (north China).
+which were located at Heyuan (south China), Hangzhou (east China) and Zhangjiakou (north China).
 Every AZ had a full copy of each shard of data.
 The internal network bandwidth in each AZ was 1Gbps.
 One of the servers was used as the client node, dedicated to issuing transaction requests. 
@@ -1119,7 +1119,7 @@ different warehouse numbers}
 \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather}
 \end{figure}
 
-In the experiments on TPC-C, we fixed the number of clients of a shard to 200 and varied the number of warehouses between 10 to 40.
+In the experiments on TPC-C, we fixed the number of clients of every shard to 200 and varied the number of warehouses between 10 to 40.
 The smaller the number of warehouses, the higher the degree of contention. 
 Fig. ~\ref{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather} shows how the throughput of transaction processing varied according to the degree of contention.
 We can see that contention had a big impact on performance. When the degree of contention decreased, the throughput rose quickly.
