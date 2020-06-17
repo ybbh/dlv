@@ -777,7 +777,7 @@ EnableLkV is used to make a lock can be violated.
 
 Algorithm~\ref{alg:execution_phase} depicts the execution phase of a transaction includes Read and Write functions.
 Read and Write function would lock the read or write key.
-The lock would be added to the lockset(l${ocks} of ${Context} struct) of transaction context
+The lock would be added to the lockset(${locks}$ of ${Context}$ struct) of transaction context
 if the lock acquire succeed.
 After the transaction access the key,
 EnableLkV would be called to enable this lock violable if the current database is in DLV0 setting. 
