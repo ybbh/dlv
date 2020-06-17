@@ -1043,13 +1043,13 @@ On a low replication latency environment, DLV cannot improve performance.
 \begin{figure}[htbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
+  \subfloat[NewOrder throughput]
       { \includegraphics[scale=0.40] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort]
       { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
       \captionsetup[subfigure]{margin={0cm,0cm}}
-      \subfloat[NewOrder TPM Ratio]
+      \subfloat[throughput percentage increase against S2PL]
           { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Ratio_gather} \label{fig:new_order_add_log_cost:ratio}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
 \caption{throughput and abort rate of
@@ -1079,14 +1079,14 @@ DLV1x perform better than other DLV scheme.
 \begin{figure}[htbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
+  \subfloat[NewOrder throughput]
       { \includegraphics[scale=0.40] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
 
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort]
+  \subfloat[NewOrder abort rate]
       { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}}
 
-    \subfloat[NewOrder TPM Ratio]
+    \subfloat[throughput percentage increase against S2PL]
       { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Ratio_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:ratio}}
 \caption{throughput and abort rate of
 different warehouse numbers}
@@ -1104,7 +1104,7 @@ different warehouse numbers}
   \subfloat[NewOrder abort rate]
       { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
 
-    \subfloat[NewOrder abort rate]
+    \subfloat[throughput percentage increase against S2PL]
       { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_gather} \label{fig:new_order_add_terminal_gathered:ratio}}
 
 
@@ -1122,7 +1122,7 @@ different warehouse numbers}
   \subfloat[NewOrder abort rate]
       { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}}
 
-      \subfloat[NewOrder TPM Ratio]
+      \subfloat[throughput percentage increase against S2PL]
       { \includegraphics[scale=0.40]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_scatter} \label{fig:new_order_add_terminal_scattered:ratio}}
 
 \caption{throughput and abort rate when adding terminal number of each shard, in scattered mode}
@@ -1140,7 +1140,7 @@ Because we mainly focus on the distributed transaction, our workload guarantees 
 We evaluate DLV performance varies on different data skew.
 
 
-Fig.    \ref{fig:plot_ycsb_add_Theta_Theta_TPM_gather} depicts YCSB throughput and abort rate when adding data skew \emph{theta}.
+Fig.   \ref{fig:plot_ycsb_add_Theta_Theta_TPM_gather} depicts YCSB throughput and abort rate when adding data skew \emph{theta}.
 The result shows DLV1x scales well on different degrees of data skew.
 
 \begin{figure}[htbp]
@@ -1152,7 +1152,7 @@ The result shows DLV1x scales well on different degrees of data skew.
   \subfloat[YCSB workload abort rate]
       { \includegraphics[scale=0.40]{figure/plot_ycsb_add_Theta_Theta_Abort_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}}
       \captionsetup[subfigure]{margin={0cm,0cm}}
-      \subfloat[YCSB workload abort rate]
+      \subfloat[throughput percentage increase against S2PL]
           { \includegraphics[scale=0.40]{figure/plot_ycsb_add_Theta_Theta_Ratio_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:ratio}}
 
 \caption{YCSB performance, throughput and abort rate when adding theta, in scattered mode}
