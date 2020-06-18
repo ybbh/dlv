@@ -610,8 +610,6 @@ When a transaction commits, it persists its data versions to the permanent stora
 If a transaction aborts, we just needs to remove its data versions from the memory.
 
 
-\label{fig:versions_example}
-\end{figure}
 
 \subsection {Timing of Lock Violation}
 
@@ -642,7 +640,7 @@ DLV1x releases locks at the earliest possible time after determining that the tr
 However, DLV1x needs an additional message round trip to confirm that all $RM$s are ready to commit.
 DLV2 releases locks later than DLV1x.
 
-Figure~\ref{fig:two_layers_architecture} illustrates the commit process of DLV1x.
+Fig.~\ref{fig:two_layers_architecture} illustrates the commit process of DLV1x.
 Before an ${RM}$ persists its `prepare' log, it sends a \emph{Ready} message to notify the ${TM}$ that it is ready to commit or abort.
 When the \emph{TM} collects all \emph{RM}s' \emph{Ready} messages, it sends \emph{Violate} messages to notify all the $RM$s that their locks can be violated.
 An interactive transaction can combine these messages with the messages of the last operations on $RM$s.
@@ -664,7 +662,7 @@ By only allowing a transaction to violate a lock with a greater transaction id,
 it can guarantee that the data dependencies are acyclic.
 
 To facilitate cascade abort, DLV needs to trace \emph{wr}-dependencies (i.e., commit dependencies) among transactions.
-Figure~\ref{fig:versions_example} illustrates why \emph{ww}-dependencies are not needed for recovery.
+Fig.~\ref{fig:versions_example} illustrates why \emph{ww}-dependencies are not needed for recovery.
 Suppose the transactions accessed two rows of data, ${x}$ and ${y}$.
 In the version lists, the green rectangles represent the uncommitted versions of the data and the red ones represent committed versions.
 We can see that although there is a ${ww}$ dependency ${w_6[x] \rightarrow w_4[x]}$,
@@ -694,6 +692,8 @@ the abort of $T_4$ does not require ${T_6}$ to abort.
   ${x_i}$ represents the version of $x$ created by ${T_i}$.
  Then, $w_j[x_i]$ represents that ${T_j}$ overwrites the write of ${T_i}$ on $x$.
 }
+\label{fig:versions_example}
+\end{figure}
 
 DLV applies the register-and-report method~\cite{HeckatonMVCC:journals/pvldb/LarsonBDFPZ11} to trace commit dependencies.
 Each transaction maintains an in-dependency count (the attribute ${in}$ in Algorithm \ref{alg:struct}), which records how many transactions it depends on.
@@ -778,7 +778,7 @@ If the ${in}$ value is less than 0, the transaction will be forced to abort.
 
 Algorithm~\ref{alg:commit_phase} depicts the final phase of 2PC.
 When a ${RM}$ receives a \emph{Commit} message from the ${TM}$, it will execute the \emph{Commit} function.
-In \the emph{Commit} function, if DLV2 is used, it will first enable lock violation.
+In the \emph{Commit} function, if DLV2 is used, it will first enable lock violation.
 Then it persists its writes, cleans its writes in memory and releases its locks.
 If the transaction has out-dependencies, it will decrease the ${in}$ value of each out-dependency transaction by one.
 If the $in$ is equal to 0, it activate the corresponding transaction that is onhold.  
@@ -1067,18 +1067,47 @@ While DLV0 and DLV1 perform lock violation too, they suffer from increased chanc
 Therefore, their abort rates were also high in the experiments.
 
 \begin{figure}[htbp]
+  %cloud setting
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
       { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
+  
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
       { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
+
   \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder speedup ratio]
+  { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Ratio_gather} \label{fig:new_order_add_log_cost:ratio}}
+
 \caption{throughput and abort rate of
-different terminal different log write costs}
+different terminal different log write costs(cloud setting)}
 \label{fig:new_order_add_log_cost}
 \end{figure}
+
+
+\begin{figure}[htbp]
+  %local setting
+  \centering
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder TPM]
+      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_LogForceT_local_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost_local:tpm}}
+  
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder abort rate]
+      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_local_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost_local:abort}}
+
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder speedup ratio]
+  { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_local_LogForceT_Ratio_gather} \label{fig:new_order_add_log_cost_local:ratio}}
+
+\caption{throughput and abort rate of
+different terminal different log write costs(local setting)}
+\label{fig:new_order_add_log_cost_local}
+\end{figure}
+
+
 
 \subsection{Impact of Contention}
 
@@ -1093,9 +1122,14 @@ In the experiments, we adopted the gathered mode, which assumes that all replica
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
       { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
+  
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
       { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}}
+      
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+      \subfloat[NewOrder speedup ratio]
+      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Ratio_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:ratio}}
 
 \caption{throughput and abort rate of
 different warehouse numbers}
@@ -1115,9 +1149,14 @@ Among the DLVs, DLV1x performed the best, as it suffered less from conflicts and
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB workload TPM]
       { \includegraphics[scale=0.25] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}}
-  \captionsetup[subfigure]{margin={0cm,0cm}}
+  
+      \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB workload abort rate]
       { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}}
+
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+      \subfloat[YCSB workload speedup ratio]
+          { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_scatter} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:ratio}}
 
 \caption{YCSB performance, throughput and abort rate when adding theta, in scattered mode}
 \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather}
@@ -1150,13 +1189,40 @@ Nevertheless, the results exhibit the same trend. DLVs outperformed S2PL signifi
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
       { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}}
-  \captionsetup[subfigure]{margin={0cm,0cm}}
+  
+      \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
       { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
+
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder speedup ratio]
+      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_gather} \label{fig:new_order_add_terminal_gathered:ratio}}
 
 \caption{throughput and abort rate when adding terminal number of each shard, in gathered mode}
 \label{fig:new_order_add_terminal_gathered}
 \end{figure}
+
+% 10 warehouse number
+\begin{figure}[htbp]
+  \centering
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder TPM]
+      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_wh10_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered_wh10:tpm}}
+  
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder abort rate]
+      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_wh10_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered_wh10:abort}}
+
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder speedup ratio]
+      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_wh10_Terminal_Ratio_gather} \label{fig:new_order_add_terminal_gathered_wh10:ratio}}
+
+\caption{throughput and abort rate when adding terminal number of each shard, in gathered mode}
+\label{fig:new_order_add_terminal_gathered_wh10}
+\end{figure}
+
+
+
 
 
 \begin{figure}[htbp]
@@ -1164,9 +1230,14 @@ Nevertheless, the results exhibit the same trend. DLVs outperformed S2PL signifi
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
       { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}}
+
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
       { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}}
+
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+      \subfloat[NewOrder speedup ratio]
+          { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_scatter} \label{fig:new_order_add_terminal_scattered:ratio}}
 
 \caption{throughput and abort rate when adding terminal number of each shard, in scattered mode}
 \label{fig:new_order_add_terminal_scattered}
