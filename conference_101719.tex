@@ -298,6 +298,7 @@ Let ${r_i[x]}$ denote that ${T_i}$ reads the record ${x}$. Let ${w_i[x]}$ denote
 Let ${c_i}$, ${a_i}$, ${p^c_i}$, ${p^a_i}$ denote the commit, abort, prepare-to-commit and prepare-to-abort operations of ${T_i}$ respectively.
 %We call ${T_i}$'s operations on the node ${s_u}$ ${T_i}$'s \emph{sub-transaction} on ${s_u}$.
 
+
 A transaction history is a collection ${H = \{h_1, h_2, ..., h_n\}}$, in which
 each ${h_u}$ is the local history of $H$ on the node ${s_u}$, which is a sequence of operations issued by different transactions.
 
@@ -586,13 +587,11 @@ For ${H_5}$, a correct recovery schedule is:
 ${exp^*(H_5) = w_1[x]w_1[y]r_2[x]w_2[y]w^-_2[y]c_2w^-_1[y]w^-_1[x]c_1}$
 \end{center}
 
-
 This problem is intrinsic with non-strictness.
 Even if we choose to perform \emph{late lock violation} only, which does not permit lock violation before deterministic abort,
 cascade abort can still be triggered by non-deterministic abort.
 To tackle this problem, we need a more complex recovery algorithm, such as SOT \cite{UnifyCR:journals/is/AlonsoVABASW94},
 than traditional ARIES \cite{ARIES:journals/tods/MohanHLPS92}.
-
 
 To reduce the complexity, DLV maintains uncommitted data versions only in memory and applies the no-steal policy to data persistence.
 The no-steal policy forbids the system from writing uncommitted data to permanent storages.
@@ -994,37 +993,41 @@ Finally, the transactions depending on this transaction will be notified to abor
 
 \section{Experiments and Evaluations}
 \label{sec:experiments}
-
 We developed a geo-replicated distributed transaction engine to evaluate the performance of \emph{DLV}.
-We compared different types of \emph{DLV} against the traditional S2PL approach. % and a CLV approach customized for the geo-replicated scenario.%optimize both violate at the 1st phase(CLV1P) and 2nd phase(CLV2P).
-In the implementation of S2PL, we used the wait-die policy to resolve deadlock, as it is known as one of the most efficient approaches in geo-distributed databases.
+We compared different types of \emph{DLV} against the traditional S2PL approach. 
+% and a CLV approach customized for the geo-replicated scenario.%optimize both violate at the 1st phase(CLV1P) and 2nd phase(CLV2P).
+In the implementation of S2PL, we used the wait-die policy to resolve deadlocks, as it is known as one of the most efficient approaches in geo-distributed databases.
 When the wait-die policy is employed, aborts, instead of blocking, will be the main obstacle of performance. 
 
 \subsection{Experimental Setting}
 \label{subsec:exp_setting}
-Our experiments were performed on a cluster of 13 Aliyun ecs.g6.large servers.
-Each server was equipped with 2 virtual CPU cores of 2.5GHz and a 8GB RAM. The OS was Ubuntu 18.04.
+Our experiments were performed on a cluster of 13 Aliyun ecs.g6.3xlarge servers.
+Each server was equipped with 12 virtual CPU cores of 2.5GHz and a 48GiB RAM. The OS was Ubuntu 18.04.
 Twelve of the servers were used to deploy the transaction engine.
-The data was partitioned by into 4 shards. Each shard had 3 replicas spread across 3 AZs, 
-which were located at Heyuan (south China), Hangzhou (east China) and Zhangjiakou (north China).
+The data were partitioned into 4 shards. 
+Each shard had 3 replicas spread across 3 AZs, 
+which were located at Heyuan (South China), Hangzhou (East China), and Zhangjiakou (North China).
 Every AZ had a full copy of each shard of data.
 The internal network bandwidth in each AZ was 1Gbps.
 One of the servers was used as the client node, dedicated to issuing transaction requests. 
 In the experiments, if a transaction aborted due to confliction, it would be retried in 3 seconds.
 We used the TPC-C and YCSB benchmarks to perform the evaluation. 
+
+
 TPC-C~\cite{TPCC:conf/tpctc/NambiarWMTLCM11} models a real world scenario, in which a company sells products through multiple warehouses in different districts, and customers order products and pay bills.
-In our version of TPC-C, we partitioned the data into 4 shards mainly by the warehouse ids.
+In our version of TPC-C, we partitioned the data into 4 shards mainly by the warehouse IDs.
 The item table was replicated across all the shards.
 As our purpose was to evaluate the performance of distributed transactions,
 we made all the transactions distributed by enforcing each transaction to order items from warehouses located at different nodes.
 We excluded the think time, and only measured the performance of the NewOrder transactions.
 
+
 YCSB~\cite{YCSB:conf/cloud/CooperSTRS10} was originally designed to evaluate NoSQL databases.
 Its transactions are relatively simple.
 Each YCSB transaction accesses nearly 10 rows of data according to a Zipfian distribution.
-By adjusting the degree of skewness of the Zipfian (i.e., the parameter \emph{theta}), we can adjust the degree of contention.
+By adjusting the degree of skewness of the Zipfian (i.e., the parameter \emph{theta}), we can customize the degree of contention.
 We partitioned the YCSB data by the primary key of the main table.
-To make all transactions distributed, we forced each transaction to access at lease two shards.
+To make all transactions distributed, we forced each transaction to access at least two shards.
 
 Table~\ref{tbl:metric} shows the metrics we used in our evaluation.
 
@@ -1039,7 +1042,6 @@ Metric & \tabincell{c}{Definition}   \\
   TPM & \tabincell{c}{ the number of transactions committed in each minute}  \\
   \hline
   Abort Rate & \tabincell{c}{the proportion of transactions that fail to commit }  \\
-  \hline Speedup Ratio & \tabincell{c}{the ratio of the throughput of DLV to the  throughput \\ of S2PL, which is the baseline} \\
   \hline
   \end{tabular}
 \caption{Metrics for Evaluation }
@@ -1049,13 +1051,12 @@ Metric & \tabincell{c}{Definition}   \\
 \subsection{Impact of Geo-replication}
 
 In the first set of experiments, we evaluated how geo-replication affects the performance of transaction processing.
-We simulated geo-replication in a single AZ. Namely, we put all replicas in the same AZ and artificially increased the communication latency among the replicas. 
-We used the TPC-C workload, in which we set the number of warehouses to 20 and the number of current clients to 200.
+We simulated geo-replication in a single AZ. 
+Namely, we put all replicas in the same AZ and artificially increased the communication latency among the replicas. 
+We used the TPC-C workload, in which we set the number of warehouses to 20 and the number of concurrent clients connected to each shard to 100.
 Fig. ~\ref{fig:new_order_add_log_cost} shows how the throughput and the abort rate of TPC-C changed with the increased replication latency.
 %Every shard replicated transactional log with user setting latency time.
-It is clear that geo-replication has a big impact on the performance. The higher the replication latency, the lower the throughput of transaction processing.
-When the latency increased to 120 microseconds, which roughly measures the message round trip time between global data centers,  
-the throughput dropped by almost 6 times.
+It is clear that geo-replication has a great impact on performance. The higher the replication latency, the lower the throughput of transaction processing.
 
 We can also see that the DLVs performed significantly better than traditional S2PL in the experiments.
 DLV1x outperformed S2PL by 2-3 times when the replication latency is high.
@@ -1063,7 +1064,7 @@ As all the candidate schedulers adopted the wait-die policy, transactions normal
 Therefore, the abort rates measure how the performance was affected by contention.
 The result shows that DLV1x and DLV2 could deal with contention better than the others.
 As they release locks earlier than S2PL, they are subject to less contention than S2PL. (DLV1x releases locks earlier than DLV2.) 
-While DLV0 and DLV1 perform lock violation too, they suffer from increased chance of serializability breach and cascade aborts.
+While DLV0 and DLV1 perform lock violation too, they suffer from an increased chance of serializability breach and cascade aborts.
 Therefore, their abort rates were also high in the experiments.
 
 \begin{figure}[htbp]
@@ -1071,177 +1072,182 @@ Therefore, their abort rates were also high in the experiments.
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
+      { \includegraphics[scale=0.4] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
   
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
-
-  \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder speedup ratio]
-  { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Ratio_gather} \label{fig:new_order_add_log_cost:ratio}}
+      { \includegraphics[scale=0.4]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
 
 \caption{throughput and abort rate of
-different terminal different log write costs(cloud setting)}
+different terminal different log write costs}
 \label{fig:new_order_add_log_cost}
 \end{figure}
 
 
+\subsection{Impact of Contention}
+
+Our second set of experiments aim to evaluate how the degree of contention affects the performance of transaction processing.
+We used both the TPC-C workload and the YCSB workload.
+We ran all the experiments in a real geo-replication environment described in Section~\ref{subsec:exp_setting}.
+In the experiments, we adopted the gathered mode, which assumes that all replica leaders co-locate in the same AZ. 
+
 \begin{figure}[htbp]
-  %local setting
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_LogForceT_local_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost_local:tpm}}
+      { \includegraphics[scale=0.4] {figure/plot_tpcc_neworder_add_HotItem_HotItem_TPM_gather} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:tpm}}
   
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_local_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost_local:abort}}
+      { \includegraphics[scale=0.4]{figure/plot_tpcc_neworder_add_HotItem_HotItem_Abort_gather} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:abort}}
+      
 
-  \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder speedup ratio]
-  { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_LogForceT_local_LogForceT_Ratio_gather} \label{fig:new_order_add_log_cost_local:ratio}}
-
-\caption{throughput and abort rate of
-different terminal different log write costs(local setting)}
-\label{fig:new_order_add_log_cost_local}
+\caption{throughput and abort rate of different possible hot items}
+\label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather}
 \end{figure}
 
 
-
-\subsection{Impact of Contention}
-
-Our second set of experiments aimed to evaluate how the degree of contention affects the performance of transaction processing.
-We used both the TPC-C workload and the YCSB workload.
-We ran all the experiments in a real geo-replication environment described in Section~\ref{subsec:exp_setting}.
-In the experiments, we adopted the gathered mode, which assumes that all replica leaders are co-located in the same AZ. 
-
-
 \begin{figure}[htbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
+      { \includegraphics[scale=0.4] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
   
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}}
+      { \includegraphics[scale=0.4]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}}
       
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-      \subfloat[NewOrder speedup ratio]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Ratio_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:ratio}}
 
-\caption{throughput and abort rate of
-different warehouse numbers}
+\caption{throughput and abort rate of different warehouses}
 \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather}
 \end{figure}
 
-In the experiments on TPC-C, we fixed the number of clients of every shard to 200 and varied the number of warehouses between 10 to 40.
+In Fig. ~\ref{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather}, we fixed the number of clients of every shard to 100 and varied the number of warehouses between 10 to 60.
 The smaller the number of warehouses, the higher the degree of contention. 
-Fig. ~\ref{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather} shows how the throughput of transaction processing varied according to the degree of contention.
-We can see that contention had a big impact on performance. When the degree of contention decreased, the throughput rose quickly.
-The DLVs in general performed better than S2PL, as lock violation had shortened their lock holding time. 
-This is especially true when the degree of contention is high. As we can see, when the number of warehouses was 10, DLV outperformed S2PL by up to 4 times.
-Among the DLVs, DLV1x performed the best, as it suffered less from conflicts and cascade aborts.
+As we can see, when the number of warehouses was 10, DLV outperformed S2PL by up to 2 times.
+Fig. ~\ref{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather} shows how the throughput of transaction processing varied according to the possibility to access hot rows.
+The performance of DLV is 3 times higher than that of S2PL when the possibility of the transaction accessing hotspot reaches 0.8.
+
+From Fig. ~\ref{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather} and 
+Fig. ~\ref{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather}, 
+we can see that contention had a big impact on performance. When the degree of contention decreased, the throughput rose quickly.
+The DLVs performed better than S2PL in general, as lock violation had shortened their lock holding time, especially when the degree of contention is high. 
+DLV0 and DLV1 do not improve throughput a great because it has a more abort rate than S2PL.
+Among the DLVs, DLV1x performed the best, as it suffered less from waiting time on conflicts locks and cascade aborts.
 
 \begin{figure}[htbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB workload TPM]
-      { \includegraphics[scale=0.25] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}}
+      { \includegraphics[scale=0.4] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}}
   
       \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB workload abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_ycsb_add_Theta_Theta_Abort_gather.pdf} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}}
+      { \includegraphics[scale=0.4]{figure/plot_ycsb_add_Theta_Theta_Abort_gather.pdf} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}}
 
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-      \subfloat[YCSB workload speedup ratio]
-          { \includegraphics[scale=0.25]{figure/plot_ycsb_add_Theta_Theta_Ratio_gather.pdf} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:ratio}}
 
 \caption{YCSB performance, throughput and abort rate when adding theta, in gathered mode}
 \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather}
 \end{figure}
 
-In the experiments on YCSB, we fixed the number of clients of every shard to 200 and varied the the parameter \emph{theta} (the skewness of the Zipfian distribution) to adjust the degree of contention.
+In the experiments on YCSB, we fixed the number of clients of every shard to 100.
+Then we varied the parameter \emph{theta} (the skewness of the Zipfian distribution) to control the degree of contention and evaluate the performance.
 The larger the \emph{theta}, the more skewed the distribution and the higher the degree of contention. 
 Fig. ~\ref{fig:plot_ycsb_add_Theta_Theta_TPM_gather} shows how the throughput was affected by the changing skewness.
-The results also show that contention had big impact on performance.
+The results also show that contention had a huge impact on performance.
 Similar to the results on TPC-C, DLVs outperformed S2PL, and DLV1x performed the best.
 
 \subsection{On Scalability}
 
 To evaluate the scalability of distributed transactions, we conducted experiments in both the gathered mode and the scattered mode.
-In the gathered mode, all the replica leaders are located in the same AZ. 
-This is the most common mode, in which requests are mainly served in the leaders' AZ, and the servers in other AZs are used for replication purpose only. 
-In the scattered mode, the replica leaders are spread across different AZs. 
-This mode is usually adopted by large-scale Web applications, which intentionally make their service available everywhere.
+In the gathered mode, all the replica leaders are in the same AZ. 
+The gathered mode is the most common mode, in which servers in the leaders' AZ served the requests mainly, and servers in other AZs are for the replication purpose only. 
+In the scattered mode, the replica leaders may spread across different AZs. 
+Large-scale Web applications usually adopt this style, which intentionally makes their service available everywhere.
 
-The experiments were conducted on TPC-C only. We fixed the number of warehouses to 20. We gradually increased the number of clients until the system was saturated. 
-Fig. ~\ref{fig:new_order_add_terminal_gathered} shows the performance of distributed transactions in the gathered mode.
-We can see that DLVs in general outperformed S2PL. The maximum throughput S2PL could achieve was around 32,000 TPM (Transactions per Minute), 
-while the throughput of DLV1x could achieve 47,000 TPM. 
-Fig. ~\ref{fig:new_order_add_terminal_scattered} shows the results in the scattered mode. 
+We conducted experiments on TPC-C and YCSB workloads. 
+Fig. ~\ref{fig:new_order_add_terminal_gathered} shows the performance of distributed transactions on TPC-C workload in the gathered mode.
+We fixed the number of warehouses to 40. 
+We gradually increased the number of clients until the system was saturated. 
+We can see that DLVs outperformed S2PL in general. 
+The maximum throughput S2PL could achieve around 31,000 TPM (Transactions per Minute), 
+while the throughput of DLV1x could achieve 59,000 TPM.
+
+
+%TODO
+
+Fig. ~\ref{fig:new_order_add_terminal_scattered}  shows the TPC-C evaluation results in the scattered mode. 
 As the intra-transaction communication in the scattered mode needs to cross AZs, its performance was slightly worse than that of the gathered mode.
 Nevertheless, the results exhibit the same trend. DLVs outperformed S2PL significantly.
+
+We also evaluate the throughput on YCSB when increase terminal number of each.
+Fig. ~\ref{fig:ycsb_add_terminal_gathered} shows the results.
+DLV1x scales better when adding concurrent terminals.
+When the test reach the maximum number of concurrent terminals, the throughput of DLV1x is twice as that of S2PL.
 
 \begin{figure}[htbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}}
+      { \includegraphics[scale=0.4] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}}
   
       \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
+      { \includegraphics[scale=0.4]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
 
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder speedup ratio]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_gather} \label{fig:new_order_add_terminal_gathered:ratio}}
-
-\caption{throughput and abort rate when adding terminal number of each shard, in gathered mode}
+\caption{throughput and abort rate when adding possible hot item row, in gathered mode}
 \label{fig:new_order_add_terminal_gathered}
 \end{figure}
 
+\begin{figure}[htbp]
+  \centering
+  \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder TPM]
+      { \includegraphics[scale=0.4] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}}
+  
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+  \subfloat[NewOrder abort rate]
+      { \includegraphics[scale=0.4]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}}
+
+\caption{throughput and abort rate when adding possible hot item row, in gathered mode}
+\label{fig:new_order_add_terminal_scattered}
+\end{figure}
+% TODO change to TPCC result
 % 10 warehouse number
 \begin{figure}[htbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_wh10_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered_wh10:tpm}}
+  \subfloat[YCSB TPM]
+      { \includegraphics[scale=0.4] {figure/plot_ycsb_add_Terminal_Terminal_TPM_gather} \label{fig:ycsb_add_terminal_gathered:tpm}}
   
       \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_wh10_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered_wh10:abort}}
+  \subfloat[YCSB abort rate]
+      { \includegraphics[scale=0.4]{figure/plot_ycsb_add_Terminal_Terminal_Abort_gather} \label{fig:ycsb_add_terminal_gathered:abort}}
 
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder speedup ratio]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_wh10_Terminal_Ratio_gather} \label{fig:new_order_add_terminal_gathered_wh10:ratio}}
 
 \caption{throughput and abort rate when adding terminal number of each shard, in gathered mode}
-\label{fig:new_order_add_terminal_gathered_wh10}
+\label{fig:ycsb_add_terminal_gathered}
 \end{figure}
-
-
-
 
 
 \begin{figure}[htbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.25] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}}
-
-  \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}}
-
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-      \subfloat[NewOrder speedup ratio]
-          { \includegraphics[scale=0.25]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Ratio_scatter} \label{fig:new_order_add_terminal_scattered:ratio}}
-
-\caption{throughput and abort rate when adding terminal number of each shard, in scattered mode}
-\label{fig:new_order_add_terminal_scattered}
+  { \includegraphics[scale=0.36] {figure/plot_availability} 
+  \caption{non availability time after one AZ is down}
+  \label{fig:plot_availability:tpm}}
 \end{figure}
+
+\subsection{Non-availability Time After Failure}
+
+Due to speculation and cascade abort, the database would take more time to abort running transactions when a failure occurs.
+In our final evaluation of our experiments, we evaluate the non-availability time of different algorithms after an AZ failure.
+Fig~\ref{fig:plot_availability:tpm} shows how throughput changes over time elapsed during one AZ failure.
+This result shows DLV0, DLV1 endures longer non-available time after an AZ failure.
+DLV2 and DLV1x have less non-available time for less false positive speculation.
+
+
+\subsection{Experimental Conclusion}
 
 In conclusion, our experimental evaluation showed that the geo-replication can have a big negative impact on the performance of distributed transactions.
 Besides the overheads of data synchronization incurred by replication, the prolonged lock holding time is also a main contributor to the degraded performance.
