@@ -55,13 +55,13 @@ le.cai@alibaba-inc.com}
 Modern distributed database systems scale horizontally by sharding its data on a large number of nodes.
 To achieve fault tolerance, most of such systems build their transactional layers on a replication layer,
 which employs a consensus protocol to ensure data consistency.
-Synchronization among replicated state machines thus becomes a major overhead of transaction processing.
+Synchronization among replicated state machines thus becomes a significant overhead of transaction processing.
 Without careful design, synchronization could amplify transactions' lock duration and impair the system's scalability.
-Speculative techniques, such as Controlled Lock Violation (CLV) and Early Lock Release (ELR), prove to be effective in shortening lock duration and boosting the performance of transaction processing.
-An intuitive idea is to use these techniques to optimize geo-replicated and distributed databases(GDDB).
-In this paper, we show that a naive application of speculation is often unhelpful in a distributed environment.
+Speculative techniques, such as Controlled Lock Violation (CLV) and Early Lock Release (ELR), prove useful in shortening lock duration and boosting transaction processing performance.
+The intuitive idea is to use these techniques to optimize geo-replicated and distributed databases(GDDB).
+This paper shows that a naive application of speculation is often unhelpful in a distributed environment.
 Instead, we introduce Distributed Lock Violation (DLV), a specialized speculative technique for geo-replicated distributed databases.
-DLV minimizes the cost of conducting lock violation so that it can achieve good performance without incurring severe side-effects.
+DLV minimizes the cost of conducting lock violations to achieve good performance without incurring severe side effects.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -70,7 +70,8 @@ Database System, Distributed Transaction, Locking, High Availability
 
 \section{Introduction}
 
-Modern distributed database systems scale out by partitioning data across multiple nodes, so that it can run transactions on multiple servers in parallel to increase throughput.
+Modern distributed database systems can scale out by partitioning data across multiple nodes.
+So the database can run transactions on multiple servers in parallel to increase throughput.
 When a transaction needs to access multiple partitions, it has to employ a coordination protocol to ensure atomicity.
 It is commonly known that such distributed transactions can lead to significant performance degradation.
 This is mainly due to the following reasons\cite{Calvin:conf/sigmod/ThomsonDWRSA12}:
@@ -79,12 +80,12 @@ This is mainly due to the following reasons\cite{Calvin:conf/sigmod/ThomsonDWRSA
 
 2. Message transmission overlaps with the critical path of transaction commit, which worsens the contention among transactions.
 
-These issues can be more serious for geo-replicated databases, which face increased network overheads.
+These issues can be more severe for geo-replicated databases, which face increased network overheads.
 The replication layer of a geo-replicated database often uses a Paxos-like consensus protocol to ensure consistency among replicas.
-This introduces an additional amount of message transmission, which further increases the duration of transactions.
+Replication and consensus introduce an additional amount of message transmission, which further increases the duration of transactions.
 To facilitate replication, we usually split data into small chunks and replicate each chunk independently.
 As a result, cross-chunk transactions (rather than cross-partition transactions) all become distributed transactions.
-This makes distributed transactions even more inevitable.
+Small chunks make distributed transactions even more inevitable.
 
 \begin{figure}[htbp]
   \centerline{\includegraphics[scale=0.8]{figure/architecture.pdf}}
@@ -93,34 +94,31 @@ This makes distributed transactions even more inevitable.
 \end{figure}
 
 Fig.    \ref{fig:architecture} presents the typical architecture of GDDB.
-The database partitions its data into many chunks.
-For each chunk, the replication layer replicates its data to several Availability Zones (AZ) \cite{Aurora:conf/sigmod/VerbitskiGSCGBM18}.
+The database partitions its data into many partitions.
+For each partition, the replication layer replicates its data to several Availability Zones (AZ) \cite{Aurora:conf/sigmod/VerbitskiGSCGBM18}.
 Among the available zones, the replication layer employs a consensus protocol to shield data consistency.
 
 As discussed in some previous works \cite{Calvin:conf/sigmod/ThomsonDWRSA12}\cite{Tapir:conf/sosp/ZhangSSKP15}\cite{Janus:conf/osdi/MuNLL16},
-this architecture has to rely on a two-layer protocol (which integrates the commit protocol and the consensus protocol) to ensure correctness of transactions.
+this architecture has to rely on a two-layer protocol (which integrates the commit protocol and the consensus protocol) to ensure transactions' correctness.
 It may fail to scale when confronted with a highly contended workload.
 
 
 \begin{figure}[htbp]
   \centerline{\includegraphics[scale=0.60]{figure/message_flow.pdf}}
-  \caption{The message flow and lock holding critical path when the DBMS uses S2PL for concurrency control and 2PC as the commit protocol.
-The dash arrow lines represent the messages introduced by Distributed Lock Violation (DLV). The red lines represent the critical paths of S2PL.
-The green dash lines represent the critical paths of DLV.}
-  \label{fig:message_flow}
+  \caption
+  {
+The DB uses S2PL for concurrency control and 2PC as the commit protocol.
+This figure shows the message flow of a transaction commit.
+The red lines represent the critical paths of locking.
+    }
+\label{fig:message_flow}
 \end{figure}
 
-Looking more closely,the main obstacle is that the combination of is that the commit and consensus protocols may enlarge the timespan of the critical paths in transaction processing.
-This significantly amplifies the chance of contention.
-This architecture supports a wide range of transaction processing methods.
-Most industrial data systems choose this two-layer architecture, including Google Spanner \cite{Spanner:conf/osdi/CorbettDEFFFGGHHHKKLLMMNQRRSSTWW12}\cite{Spanner:conf/sigmod/BaconBBCDFFGJKL17},
-NuoDB \cite{NuoDB}, CockroachDB \cite{CockroachDB}, TiDB \cite{TiDB}, etc.
-
 Fig.    \ref{fig:message_flow} shows the message flow of a distributed transaction in such an architecture. We assume that
-it uses S2PL for concurrency control and 2PC as the commit protocol, and the replication layer is deployed over a WAN.
+GDDB uses S2PL concurrency control scheme and 2PC as the commit protocol, and the replication layer works over a WAN.
 When a transaction requests to commit, the \emph{TM (transaction manager)} issues a `prepare' message to each \emph{RM (resource manager)}.
-Then, each \emph{RM} replicates its vote (`prepare commit' or `prepare abort') to the corresponding replicas through a consensus protocol, before it
-sends its vote to \emph{TM}.
+Then, each \emph{RM} replicates its vote (`prepare commit' or `prepare abort') to the corresponding replicas through a consensus protocol before it
+sends its voting result to \emph{TM}.
 After the \emph{TM} collects all the votes of the \emph{RMs}, it replicated its commit log.
 \footnote{Depending on variants of implementations, the TM can choose to persist its decision on its log or not.}
 TM broadcasts the decision (`commit' or `abort') to all the \emph{RMs}
@@ -130,48 +128,71 @@ After the consensus of commit or abort reaches, the \emph{RM}
 can release the locks it had retained over the accessed data.
 Finally, \emph{TM} replicate an end log to finish the transaction and clean the transaction context.
 
-
 We depict the lock duration by red lines in Fig.    \ref{fig:message_flow}.
 As we can see, the lock duration spans multiple messages round trips, including those over the WAN.
-Fig.    \ref{fig:log_write_latency} shows the WAN RTT, LAN RTT and disk seek approximate time.
-This may severely impair degree of parallelism especially in face of intensive contention.
+Table.    \ref{tbl:network_rtt} shows the RTT of the different network types on Alibaba ECS server.
+A long RTT may severely impair the degree of parallelism, especially when processing contention intensively.
 
 Speculative techniques, such as Early Lock Release (ELR) \cite{EfficientLocking:conf/vldb/KimuraGK12} and Controlled Lock Violation (CLV)
 \cite{CLV:conf/sigmod/GraefeLKTV13}, prove to be effective in optimizing centralized transaction processing.
-They can be extended to a distributed environment.
+We could extend these techniques to a distributed environment.
 
-\begin{figure}[htbp]
-  \centerline{\includegraphics[scale=0.4]{figure/log_write_latency.png}}
-  \caption{approximate latency comparison\cite{Latency}}
-  \label{fig:log_write_latency}
-\end{figure}
+
+\begin{table}[htb]
+  \centering
+  \scalebox{1}{
+  %\begin{adjustbox}{width=10,center}
+  \begin{tabular}{|c|c|c|}
+  \hline
+\textbf{From - To Cities} & \textbf{Network Type} & \textbf{RTT}    \\
+\hline
+Hangzhou - Hangzhou & same AZ LAN & 0.123ms \\
+\hline
+Hangzhou - Hangzhou & different AZs WAN & 1.96ms \\
+\hline
+Hangzhou - Heyuan & different states/provinces WAN & 33.5ms \\
+
+\hline
+Virginia - Frankfurt & different continents WAN & 98.6ms \\
+\hline
+Hangzhou - Frankfurt & different continents WAN &206ms \\
+  \hline
+  \end{tabular}}
+  %\end{adjustbox}
+  \caption{network message RTT on Alibaba ECS}
+\label{tbl:network_rtt}
+\end{table}
+
 
 Speculative techniques improve concurrency by excluding logging from lock duration.
 Transactions on GDDB require much more time to ship and persist logs.
 
-This provides more opportunities for exploiting speculation.
+GDDB provides opportunities for exploiting speculation.
 However, the application of speculation in a distributed environment is complex.
-Several design choices need to be considered.
+We consider several design choices.
 For instance, when working with 2PC, we need to decide to violate (or release) lock at which phase.
 As some previous work suggested \cite{CLV:conf/sigmod/GraefeLKTV13}, lock violation at the first phase may enable a higher degree of concurrency.
 However, dependency tracing and cascade abort may incur excessive overheads.
-On the contrary, lock violation at the second phase costs less on in-dependency tracing and cascade abort, while it has to sacrifice a certain amount of concurrency.
-%Transaction models, interactive or one-shot transactions, may have different message flow, how different transaction types could benefit from these techniques?
+On the contrary, lock violation at the second phase costs less on in-dependency tracing and cascade abort while sacrificing a certain amount of concurrency.
+
+A locking scheduler needs mechanisms to handle deadlock.
+Handling deadlock efficiently in a distributed environment is challenging.
+How locking violation would compose with deadlock handling is not well explored.
 Moreover, not all transactions can benefit from CLV or ELR, e.g., workload with little conflict.
 It is unnecessary and even harmful to apply speculation to all cases.
 
 
-To the best of our knowledge, this is the first experimential study on lock violation of GDDB.
-We found that CLV does always not necessarily help of the performance on GDDB.
-The reason is that violation serializabile and cascade abort would more likely occur.
+To the best of our knowledge, this is the first experimental study on lock violation of GDDB.
+We found that CLV does always not necessarily help with the performance of GDDB.
+The reason is that violate serializability and abort (possible cascade abort) would more likely occur.
 In this paper, we propose a technique called Distributed Lock Violation (DLV) to enhance the performance of GDDB.
-DLV can harness the most benifit of CLV in GDDB and it minimize the cascade abort penalty and dependency tracing cost.
+DLV can harness CLV's most benefit in GDDB, and it minimizes the cascade abort penalty and dependency tracing cost.
 
-The remainder of this paper is organized as follows.
+We organized the remainder of this paper as follows.
 Section \ref{sec:relate_work} reviews related work.
-In Section III, we explain why a strict schedule is not necessary and may hurt the performance of distributed DBMS.
+In Section III, we explain why a strict schedule is unnecessary and may hurt the performance of distributed DBMS.
 Section \ref{sec:implement} introduces DLV.
-Section \ref{sec:experiments} evaluates DLV and compares it against previous work.
+Section \ref{sec: experiments} evaluates DLV and compares it against previous work.
 Section \ref{sec:conclusion} concludes this paper.
 
 
@@ -180,83 +201,77 @@ Section \ref{sec:conclusion} concludes this paper.
 %This section introduces the related work of this paper.
 
 \subsection{Transaction Processing on Replicated Databases}
-%Recently, there are many scalable DBMS arisen in both academia and industry.
-%Most of the systems in this category supports distributed query processing and
-%replicate data across several data centers geo-located in different areas for fault tolerance.
+
 
 Most replicated databases rely on state-machine replication(SMR) to realize high availability.
 SMR often uses a consensus protocol to synchronize different replicas.
-The synchronization introduces a significant amount of network traffic and becomes a major overhead of replicated database systems.
+The synchronization introduces a significant amount of network traffic and becomes a significant overhead of replicated database systems.
 Paxos \cite{Paxos:journals/tocs/Lamport98}\cite{PaxosSimple:conf/opodis/Lamport02} is the most well known consensus protocol.
 To reach a consensus on a single data update in Paxos, it costs two message round trips, one for choosing a proposal and another for proposing the entry.
 Multidecree Paxos\cite{Multidecree:journals/csur/RenesseA15} elects a leader as the only proposer to eliminate the first message round trip.
-Raft\cite{Raft:conf/usenix/OngaroO14} is a similar consensus protocol to Paxos. As it is more understandable, it is widely used in modern database systems.
+Raft\cite{Raft:conf/usenix/OngaroO14} is a similar consensus protocol to Paxos.
+Modern database systems widely use Raft, as it is more understandable than Paxos.
 In Raft, it costs at least one message round trip to reach a consensus.
 Google Spanner \cite{Spanner:conf/osdi/CorbettDEFFFGGHHHKKLLMMNQRRSSTWW12}\cite{Spanner:conf/sigmod/BaconBBCDFFGJKL17},
 NuoDB \cite{NuoDB}, CockroachDB \cite{CockroachDB} and TiDB \cite{TiDB} are all geo-replicated DBMSes built upon Paxos or Raft.
 They all face heavy costs incurred by data synchronization.
 
-To minimize the cost of synchronization, many techniques have also been proposed.
+Previous work has proposed many techniques
+to minimize the cost of synchronization.
 VoltDB \cite{VoltDB} and Calvin \cite{Calvin:conf/sigmod/ThomsonDWRSA12} employ a deterministic transaction model
 to reduce the coordination cost of distributed transactions.
-Deterministic scheduling enables active replication, which allows transactions to kickoff synchronization at the earliest possible time.
-Tapir \cite{Tapir:conf/sosp/ZhangSSKP15} relaxes the consistency requirements of the replication layer so that it can reduce the message round trips to reach consensus.
+The deterministic scheduler enables active replication, which allows transactions to kick off synchronization at the earliest possible time.
+Tapir \cite{Tapir:conf/sosp/ZhangSSKP15} relaxes the replication layer's consistency requirements so that it can reduce the message round trips to reach consensus.
 Janus \cite{Janus:conf/osdi/MuNLL16} aims to minimize wide-area message round trips
 by consolidating the concurrency control mechanism and the consensus protocol.
 It uses deterministic serializable graph tracing to ensure the atomicity of transactions.
 In a nutshell, Tapir and Janus both co-designed the transaction and replication layers of distributed databases, so that they only need to incur one wide-area message round trip to commit a transaction.
-VoltDB, Calvin, Tapir and Janus all impose strict constraints on the implementation of the transaction layer, making them incompatible with existing systems, such as Spanner and CockroachDB.
-In contrast, this work focuses on the optimization opportunities in the general implementation of geo-replicated and distirbuted databases (GDDB, as depicted in Fig.    \ref{fig:architecture}).
-
+VoltDB, Calvin, Tapir, and Janus all impose strict constraints on implementing the transaction layer, making them incompatible with existing systems, such as Spanner and CockroachDB.
+In contrast, this work focuses on the optimization opportunities in the general implementation of geo-replicated and distributed databases (GDDB, as depicted in Fig.    \ref{fig:architecture}).
 \subsection{Optimization on Locking based Concurrency Control}
-%DBMS use concurrency control(CC) to calculate a serializable schedule for concurrent transactions.
 Two-phase locking (2PL) is the most widely used concurrency control mechanism.
 As a pessimistic method, 2PL assumes a high likelihood of transaction conflict.
 It uses locks to enforce the order of conflicting transactions.
 Strict 2PL (S2PL) is a brute force implementation of 2PL. 
 It requires a transaction to preserve all its lock until it ends.
 As S2PL can easily guarantee transactions' recoverability, many databases choose to use it.
-When extending S2PL to distributed databases, the lock holding time will be substantially enlarged, 
-as the commit critical path will involve several message round trips.
+When extending S2PL to GDDB, transaction commitment and replication would substantially enlarge the lock holding time,
+as the commitment will involve several message round trips.
 
-All S2PL implementations adopt a certain approach to resolve deadlocks.
+All S2PL implementations adopt a specific approach to resolve deadlocks.
 In the \emph{no-wait}
 \cite{EvaluationOfCC:journals/pvldb/HardingAPS17}
 approach, a transaction immediately aborts if it fails to place a lock.
 Previous works showed that this is a scalable approach in a distributed environment \cite{EvaluationCC1000Cores:journals/pvldb/YuBPDS14}\cite{EvaluationOfCC:journals/pvldb/HardingAPS17},
 as it eliminates blocking completely.
-However, it works poorly when dealing with high contention workload.
+However, it performs poor performance when dealing with high contention workload.
 Another approach is \emph{wait-die} \cite{LockNoWait:journals/csur/BernsteinG81}. 
 It avoids some false-positive aborts encountered by \emph{no-wait} by utilizing timestamps.
-In DLV, we adopt a variant of the wait-die approach.
 The \emph{Deadlock detection} approach \cite{LockCC:conf/ds/GrayLPT76} detects deadlock by explicitly tracing wait-for relationship among transactions
 While deadlock detection proves effective in centralized database systems\cite{MySQL}\cite{PostgreSQL}.
+In DLV, we discuss and evaluate the wait-die and deadlock detection approach.
 %it is costly in a distributed environment.
 %However, deadlock detection in a distributed environment is highly costly, making it the least favorable approach in our case.
 
-%\subsection{Exploit Speculation and Lock Violation}
-To optimize the performance of locking based concurrency control, speculation can be used.
-%Similar approaches have been introduced by many previous works.
+DB can use speculation to optimize the performance of locking based concurrency control scheme.
 Early lock release (ELR)
 \cite{ELR:dewitt_implementation_1984}\cite{PS2PL:conf/icdt/Soisalon-SoininenY95}
 \cite{Aether:journals/pvldb/JohnsonPSAA10}
 \cite{EfficientLocking:conf/vldb/KimuraGK12}
 \cite{Actor-Oriented-DB:conf/icde/Bernstein18}
 is a typical speculative technique.
-ELR allows a transaction to release its locks before its commit log is flushed to disk.
+ELR allows a transaction to release its locks before DB flush its commit log to disk.
 It was first proposed by DeWitt et al.\cite{ELR:dewitt_implementation_1984}.
-Soisalon-Soininen et al.\cite{PS2PL:conf/icdt/Soisalon-SoininenY95} analyzed its correctness in various settings.
+Soisalon-Soininen et al. .\cite{PS2PL:conf/icdt/Soisalon-SoininenY95} analyzed its correctness in various settings.
 Many other works applied and evaluated ELR in different types of systems \cite{Aether:journals/pvldb/JohnsonPSAA10}\cite{EfficientLocking:conf/vldb/KimuraGK12}\cite{EfficientLocking:conf/vldb/KimuraGK12}\cite{Aether:journals/pvldb/JohnsonPSAA10}.
-However, previous works on ELR were largely limited to centralized database systems.
-
 Control lock violation (CLV) \cite{CLV:conf/sigmod/GraefeLKTV13} is a more general speculative technique than ELR and it mainly focuses centralized DB.
-It allows certain transactions to ignore certain locks, instead of releasing a lock completely.
-CLV has been tested on distributed databases. The results show that it can optimize both phases of two-phase commit.
+It allows specific transactions to ignore conflict locks, instead of releasing a lock early.
+CLV shows that it can optimize both phases of two-phase commit.
 CLV needs to trace dependency among transactions.
 In \cite{CLV:conf/sigmod/GraefeLKTV13}, the authors use a Register and Report (RARA) approach \cite{HeckatonMVCC:journals/pvldb/LarsonBDFPZ11} to implement the tracer.
 RARA works well on a centralized database. In a distributed environment, dependency tracing becomes much more costly.
-Cascade abort is another side effect of speculation. It can also leads to severe performance downgrade for distributed databases.
-%{TODO} In the section of evaluation, we will compare CLV in [11] against our DLV approach.
+Cascade abort is another side effect of speculation. It can also lead to severe performance downgrade for distributed databases.
+
 
 \section{Scheduling with Lock Violation}
 \label{sec:non_strict}
@@ -265,15 +280,15 @@ In the following, we describe the basic idea of applying lock violation to trans
 
 \subsection{Preliminaries and Assumptions}
 Our scenario is a GDDB, which shards its data by primary keys.
-Each data chunk is replicated across several remotely located AZs.
-Physiological logs , which record row-level write operations, are transmitted among the AZs to keep the data synchronized.
-A consensus protocol is used to prevent the synchronization from going wrong.
-We assume that there is a replica leader for each data chunk, which is responsible for coordinating the synchronization process.
+Each data shards replicated its data across several remotely located AZs.
+Physiological logs, which record row-level write operations, are transmitted among the AZs to keep the data synchronized.
+The replicated log uses a consensus protocol to prevent synchronization from going wrong.
+We assume each data shard chooses a leader who is responsible for coordinating the synchronization process.
 
-We assume that two types of distributed transactions can be conducted on the system. They are known as one-shot and interactive transactions.
+We assume that DB conducts two types of distributed transactions. They are known as one-shot and interactive transactions.
 Fig.    \ref{fig:transaction_type} shows the message flow during the commit phase of the two types of transactions.
-We can see that an interactive transaction costs more message round trips than a one-shot transaction,
-as the $TM$ has to explicitly notify the $RM$s that they can prepare to commit.
+We can see that interactive transaction costs more message round trips than a one-shot transaction.
+For an interactive transaction, the $ TM $ has to explicitly notify the $RM$s they can prepare to commit.
 
 \begin{figure}[htbp]
     \centering
@@ -302,21 +317,21 @@ Let ${r_i[x]}$ denote that ${T_i}$ reads the record ${x}$. Let ${w_i[x]}$ denote
 Let ${c_i}$, ${a_i}$, ${p^c_i}$, ${p^a_i}$ denote the commit, abort, prepare-to-commit and prepare-to-abort operations of ${T_i}$ respectively.
 
 
-A transaction history is a collection ${H = \{h_1, h_2, ..., h_n\}}$, in which
-each ${h_u}$ is the local history of $H$ on the node ${s_u}$, which is a sequence of operations issued by different transactions.
-For instance, Fig. \ref{fig:strict_example} illustrates a transaction history over three nodes.
+A transaction schedule is a collection ${H = \{h_1, h_2, ..., h_n\}}$, in which
+each ${h_u}$ is the local schedule of $H$ on the node ${s_u}$, which is a sequence of operations issued by different transactions.
+For instance, Fig. \ref{fig:strict_example} illustrates a transaction schedule over three nodes.
 
 \subsubsection{Deterministic and Non-deterministic Abort}
-Several reasons can cause a transaction to abort. In general, they can be categorized as:
+Several reasons can cause a transaction to abort. In general, we categorize them as:
 
 1. User requested abort. 
-These are aborts specified by the program logic (e.g. transaction requires to abort if it has accessed a non-existent record presumed existence).
+These are aborts specified by the program logic (e.g., the transaction requires to abort if it has accessed a non-existent record presumed existence).
 
 2. Due to maintaining isolation (e.g., serializability). 
 These are aborts commanded by the database system.
-Various concurrency control algorithms has different strategies to choose abort transactions.
+Various concurrency control algorithms have different strategies to choose abort transactions.
 For a locking scheme using deadlock detection,
-the scheduler would choose a transaciton as victim transaction to break circle in wait for graph.
+the scheduler would choose a transaction as a victim transaction to break the circle in wait for graphs.
 
 3. Database node failure. 
 For simplicity, we assume there are fail-stop failures only.
@@ -328,19 +343,19 @@ Therefore, the prices we are willing to pay for the two kinds of abort are very 
 \subsubsection{Dependencies among Transaction}
 
 There are three kinds of data dependency among transactions, known as \emph{wr-dependency}, \emph{ww-dependency} and \emph{rw-dependency}.
-In a local history ${h}$, if ${T_j}$ reads ${T_i}$'s write on ${x}$,
+In a local schedule ${h}$, if ${T_j}$ reads ${T_i}$'s write on ${x}$,
 we call it a \emph{write-after-read(wr) dependency} and denote it by ${w_i[x] \rightarrow r_j[x]}$.
 Analogically, if ${T_j}$ overwrites ${T_i}$'s write on ${x}$, it is called a \emph{write-after-write(ww) dependency} and denoted by ${w_i[x] \rightarrow w_j[x]}$.
 If ${T_i}$ reads ${x}$ before ${T_j}$ writes on ${x}$, it is called a \emph{read-after-write(rw) dependency} and denoted by ${r_i[x] \rightarrow w_j[x]}$.
-Based on data dependencies, we can define \emph{commit dependency}. ${T_j}$ has a \emph{commit dependency} on ${T_i}$, written as ${T_i \rightarrow T_j}$, if ${T_j}$ cannot commit prior to ${T_i}$.
+Based on data dependencies, we- can define \emph{commit dependency}. ${T_j}$ has a \emph{commit dependency} on ${T_i}$, written as ${T_i \rightarrow T_j}$, if ${T_j}$ cannot commit prior to ${T_i}$.
 In other words, ${T_i}$ aborts, ${T_j}$ has to abort too. ${T_j}$ has a \emph{commit dependency} on ${T_i}$, if and only if ${T_j}$ has a \emph{rw-dependency} on ${T_i}$.
 More detail concepts of dependency can be found in \cite{Dependency:conf/sigmod/ChrysanthisR90} \cite{Dependency:conf/sigmod/BilirisDGJR94}
 %cite{TODO}
 
 \subsubsection{Relaxation on Corrrect Criteria}
 
-Traditional database systems adopt Strict Two-Phase Locking (S2PL) \cite{DBLP:conf/vldb/Raz92} to ensure the and serializable recoverability of transactions.
-Strictness implies that a transaction cannot read a previous write by another transaction that has not committed yet.
+Traditional database systems adopt Strict Two-Phase Locking (S2PL) \cite{DBLP:conf/vldb/Raz92} to ensure serializability and recoverability.
+Strictness implies that a transaction cannot read a previous write by another transaction that has not been committed yet.
 Strictness is not a necessary condition for a correct schedule.
 Although it simplifies the implementation of a database system, it sacrifices the concurrency of transaction processing.
 
@@ -387,8 +402,10 @@ Our basic idea is to develop a serializable but non-strict scheduler to shorten 
 
 Relaxation on strictness will, however, complicate the recovery mechanism.
 In a traditional recovery mechanism, such as ARIES, the dependencies among transactions completely comply with the persisting order of their logs. 
-This guarantees the recoverability of scheduling, which requires that a transaction cannot commit before the transactions it has commit dependencies on.
+Log order guarantees the recoverability of scheduling, which requires that a transaction cannot commit before the transactions it has commit dependencies on.
 When strictness no longer holds, we need other tactics to enforce the commit order, which may incur additional overheads.
+In the next section, we would introduce our design to solve recoverable.
+Our correctness criteria for lock violation are both serializability and recoverability, but not including strictness.
 
 \subsection{Lock Violation and Dependency Tracing}
 
@@ -415,11 +432,11 @@ Many techniques can be adopted to achieve this, including the \emph{wait-die} st
 Secondly, a schedule generated by lock violation must be recoverable.
 In the schedule ${H_4}$ in Fig.   \ref{fig:schedule_not_recoverable}, due to lock violation,
 ${T_2}$ reads  ${T_1}$'s write and commits before ${T_1}$.
-In this case, if ${T_1}$ later on decides to abort, it is no longer possible to reverse ${T_2}$.
+In this case, if ${T_1}$ decides to abort later, it is no longer possible to reverse ${T_2}$.
 Therefore, ${H_4}$ is not a recoverable schedule.
-To ensure recoverability, we need to trace the commit dependencies (i.e., $wr$-dependencies) among +transactions, and force the commit order to comply with the commit dependencies.
+To ensure recoverability, we need to trace the commit dependencies (i.e., $wr$-dependencies) among transactions, and force the commit order to comply with the commit dependencies.
 
-Dependencies would be tracing after a lock violation action to maintain serializabile and recoverability.
+Dependencies would be tracing after a lock violation action to maintain serializable and recoverability.
 If we know that ${T_2}$ depends on ${T_1}$, we can hold ${T_2}$'s commit request until ${T_1}$ finishes.
 If ${T_1}$ decides to abort, we abort ${T_2}$ too. This is known as \emph{cascade abort}.
 Cascade abort can be cause by a deterministic abort or a non-deterministic abort. 
@@ -436,101 +453,103 @@ In a distributed transaction, $TM$ assigns work to $RM$. Once the work is done, 
 In 2PC, both $TM$ and $RM$ need to synchronize with their replicas, to make sure that node failures will not corrupt the data.
 Synchronization usually takes a long time, especially when the replicas are located remotely.
 DLV aims to prevent data synchronization from coinciding with the lock holding time.
-
-In a GDDB, lock violation can potentially be allowed on two occasions in a transaction.
-The first occasion is when the work of the transaction has been completed successfully and the transaction is ready to commit.
-We call lock violation at this occasion \emph{late lock violation}. It is only intended to reduce the contention in the commit phases of transactions.
-The second occasion is before the transaction is ready to commit. We call lock violation at this occasion \emph{early lock violation}. 
-Early lock violation can also fall into two categories: 
-violation immediately before an ${RM}$ decides its prepare decision, 
-and violation when a transaction is even on-going in this ${RM}$. 
-
-
-While early lock violation allows us to harness more concurrency, it may cause additional issues. 
+We classify lock violation by two types, early lock violation(or early violation for short) and late lock violation(or late violation for short).
+Suppose any time there are two transactions $T_i$ and $T_j$ in a global serializable schedule $H = ... op_i(x) ... op_j(x)$,
+$op_i(x)$ and $op_j(x)$ are transaction $T_i$, $T_j$'s opeartion on $x$
+and $op_j(x)$ violate $op_i(x)$'s lock on $x$.
+If for any operation except complete action not include deterministic abort(non-deterministic abort or commit) from $T_i$ is in $H$,   this lock violation action is late lock violation.
+Correspondingly, if some access operations from  $T_i$ do not exist in $H$, i.e., some ongoing operations have not been scheduled, this lock violation action is early lock violation.
+If all the lock violation actions produced by a scheduler are late violation actions, the scheduler is a late lock violation scheduler.
+Otherwise, if some early lock violation action exists, then the scheduler is early lock violation.
+While early lock violation allows us to harness more concurrency, but it may cause additional issues. 
 First, early lock violation can result in non-serializable schedules. This has been illustrated by ${H_3}$ in Fig.   \ref{fig:schedule_abort_example}.
-In contrast, \emph{late lock violation} is safe. If a transaction can only violate the locks of transactions that are ready to commit, it cannot result in cyclic data dependencies.
-Second, early lock violation faces a much higher chance of cascade abort. In late lock violation, only non-deterministic aborts can cause cascade abort, as no lock can be violated before deterministic aborts (since the transaction has already been permitted to commit). In early lock violation, all types of aborts can cause cascade abort.
+In contrast, \emph{late lock violation} is safe on serializability. If a transaction can only violate the locks of transactions that are ready to commit, it cannot result in cyclic data dependencies.
+Early lock violation need maintains more dependencies to maintain safety. 
+Second, early lock violation faces a much higher chance of abort, possible cascade abort. 
+In late lock violation cases, only non-deterministic aborts can cause cascade abort as no lock can be violated before a deterministic abort. 
+In early lock violation, all types of aborts can cause cascade abort.
 
 
 Whether late or early lock violation is adopted, we need to trace the commit dependencies among transactions and make sure they commit in the right order.
-In a GDDB, the scheduler should follow the following rules to enforce the commit order.
-Given that there is a commit dependency from ${T_j}$ to ${T_i}$,
+But only early violation needs to maintain all \emph{rw, ww, wr} dependencies, which we will discuss in the following subsection.
 
-\begin{enumerate}
-  \item ${T_j}$'s $RM$ can persist its `prepare' state (including replication of the state) only if ${T_i}$ has committed;
-  \label{rule:prepare}
+Concretely, to adapt two-phase commit, we define several time points to enable conflict transaction operations can violate previously holding lock.
+We define as follows:
 
-  \item ${T_j}$'s $TM$ can send out `commit' request only if ${T_i}$ has committed;
-  \label{rule:commit}
+\emph{DLV0}: 
+Once a transaction finishes a read or write operation, other conflict transaction operations can immediately violate the lock.
+In this way, a transaction can violate an already existed lock at any time.
+The correctness is based on dependent on dependency tracing but locking.
 
-  \item If ${T_i}$ aborts, ${T_j}$ must also abort too.
-  \label{rule:abort}
-\end{enumerate}
+\emph{DLV1}: 
+After an ${RM}$ of a distributed transaction finishes its access operations on the local node, but before the transaction persists its `prepare commit' state, other conflict transaction operations can violate this transaction's lock.
+At this time, although the local schedule can enforce a serializable prefix, there may be another remote node that cannot guarantee serializability and other ${RM}$s abort deterministically, especially for one-shot transactions.
+
+\emph{DLV2}: 
+When a transaction has entered the second phase of 2PC and received the second round messages, it allows conflict lock to violate all the locks it has held.
+In this scenario, the lock violation scheduler has prevented deterministically abort for violating serializability before the violation.
+
+\emph{DLV1x}: 
+Before lock violation, the transaction scheduler enforces a serializability test.
+If the test is ok, the conflicting lock request can violate another lock.
+This need possibly another round message trip for transaction commit message flow, especially for a one-shot transaction.
+However, this message can be parallel with 2PC and replication message flow.
+The important is that on a GDDB,  this message round trip is not a time consuming one, as it does not often occur between geo-replicated nodes.
+An interactive transaction can combine these messages with the last operations' messages.
 
 
-In \emph{late lock violation}, a transaction allows its lock to be violated only after all $RM$s confirm that they can commit.
-Therefore, it requires an additional message round trip between the $TM$ and the $RM$s before the commit starts.
-In \emph{early lock violation}, each $RM$ can autonomously decide to when to permit lock violation.
-It saves a message round trip but faces a higher chance of cascade abort.
-There are four types of late and early lock violation, defined as follows:
+\begin{figure}[htbp]
+  \centerline{\includegraphics[scale=0.50]{figure/lock_violation_time.pdf}}
+  \caption
+  {Timing of enabling lock violation}
+\label{fig:lock_violation_time}
+\end{figure}
 
-\emph{DLV0}: Once a transaction finishes a read or write operation, it allows the lock to be violated immediately;
-
-\emph{DLV1}: After an ${RM}$ finishes its work and before it persists its `prepare' state, it allows its locks to be violated;
-
-\emph{DLV1x}: Once a transaction guarantees that all the ${RM}$s can commit (but before they persist their `prepare' states), it allows all the locks to be violated;
-
-\emph{DLV2}: When a transaction enters the second phase of 2PC, it allows all its locks to be violated.
-
-DLV0 and DLV1 are early lock violation, and DLV1x and DLV2 are late lock violation.
+Figure. \ref{fig:lock_violation_time} show the different timing of enabling lock violaion.
+Both DLV0 and DLV1 are early lock violation, and DLV1x and DLV2 are late lock violation.
 DLV0 allows earlier lock violation than DLV1, while it faces a higher abort rate.
-DLV1x releases the locks at the earliest possible time after determining that the transaction can commit. 
-However, DLV1x needs an additional message round trip to confirm that all $RM$s are ready to commit.
-DLV2 permits lock violation even later than DLV1x.
-
-Fig.~\ref{fig:message_flow} illustrates the commit process of DLV1x.
-Before an ${RM}$ persists its `prepare' log, it sends a \emph{Ready} message to notify the ${TM}$ that it is ready to commit or abort.
-When the \emph{TM} collects all \emph{RM}s' \emph{Ready} messages, it sends \emph{Violate} messages to notify all the $RM$s that their locks can be violated.
-An interactive transaction can combine these messages with the messages of the last operations on $RM$s.
-For a one-shot transaction, this additional message round trip cannot be avoided.
-Nevertheless, this message round trip is not a time consuming one, as it does not occur between geo-replicated nodes not .
+DLV1x releases the locks at the earliest possible time after determining that the transaction can have the most chance to commit. 
 
 \subsection{Dependency Maintaining and Cascade Abort}
-As previous discussion,
+As the previous discussion,
 the scheduler must trace commit dependencies must to keep serializability and recoverability after lock violation.
-Since early violation can violate serializability of locking scheme, the scheduler must maintains all \emph{rw, wr, ww} dependencies to prevent circles in conflict graphes.
-Late violation schedule, as its has promised commit projection,
-it need only ensure recoverability.
+Since early violation can violate the locking scheme's serializability, the scheduler must maintain all \emph{rw, wr, ww} dependencies to prevent circles in conflict graphs.
+Late violation schedule, as it has promised commit projection,
+it need only to ensure recoverability.
 It would be good to maintain \emph{wr} dependency only because
 \emph{rw} and \emph{ww} dependencies does not effect on recoverability.
 
 
 DLV applies the register-and-report method~\cite{HeckatonMVCC:journals/pvldb/LarsonBDFPZ11} to trace commit dependencies.
-Each transaction maintains an in-dependency count (the attribute ${in}$ in Algorithm \ref{alg:struct}), which records how many transactions it depends on.
-Each transaction also maintains an out-dependency set (the attribute ${out}$ in Algorithm \ref{alg:struct}), which records all the transactions depending on it.
-When a transaction ${T}$ reads from a transaction ${S}$,
-DLV registers the commit dependency by adding ${T}$ to the ${out}$ of ${S}$ and incrementing the ${in}$ of ${T}$ by one.
-A transaction cannot commit if its ${in}$ is greater than 0, which suggests that some of its in-dependency transaction has not been committed yet.
-When a transaction aborts, it notifies all its out-dependency transactions to abort too (cascade abort), by setting their ${in}$s to a negative value.
-If a transaction finds that its ${in}$ is negative, it will abort.
-When a transaction commits, it will traverse its out-dependency set and decrease the ${in}$ value of each out-dependency transaction by one.
-The dependency information can be maintained in memory.
-If there is a node failure, its dependency information can be dropped safely. 
+Each transaction maintains an in-dependency count ${in}$, which records how many transactions it depends.
+Each transaction also maintains an out-dependency set  ${out}$, which records all the transactions depending on it.
+When a transaction ${T}$ violates another transaction ${S}$'s lock,
+DLV would register the commit dependency by adding ${T}$ to the ${out}$ set of ${S}$, and incrementing the ${in}$ of ${T}$ by one.
+A transaction cannot commit(prepare commit) if its ${in}$ dependency count is greater than 0, suggesting that the DB has not yet committed some of its in-dependency transactions.
+When a transaction aborts, it notifies all its out-dependency transactions to abort (cascade abort) by setting their ${in}$ dependency count to a negative value.
+If a transaction finds that its ${in}$ dependency count is negative, it will cascade abort.
+When a transaction commits, it will traverse its ${out}$ set and decrease the ${in}$ value of each transaction in ${out}$ set by one.
+The DB can maintain dependency information in memory at each local $RM$ node independently.
+As the commit dependencies are maintained locally and the transaction state cannot change to undecided state(`prepare commit' state) before its ${in}$ dependency count go zero,
+if there is a node failure,  DB dropped its can its dependency information safely. 
 
-Another problem arising when cascade abort occur is keeping the order of transaction undo operations. 
-To conduct abort, traditional database systems use undo logs to cancel out a transaction's write operations.
+Another problem may arise when cascade abort occurs,
+which is keeping the order of transaction undo operations. 
+Traditional DB use undo logs to cancel out a transaction's write operations to conduct abort.
 Undo write operations become a bit tricky when non-strictness is allowed.
-When a centralized DB exploit late lock violation on, then scheduler could utilize the chronolical order of database logs.
+When a centralized DB exploit late lock violation, the scheduler could utilize the chronological order of database logs.
 In this situation, cascade abort only occurs when the database fails.
-When system recovery, the database can undo write operation by the logs's reserve order, such as ARIES \cite{ARIES:journals/tods/MohanHLPS92} does.
+When system recovery, the database can undo write operation by the logs' reserve order, such as ARIES \cite{ARIES:journals/tods/MohanHLPS92} does.
 
-For a distributed DB, even late violation, the order of undo update can not easly achieved.
-There is no global chronolical log order and the existence of partial failure make its is hard to guarantee undo order only by local log order.
-If its possible, the performance can be unacceptable because the schduaer must backtrace many log recrods.
+For a distributed DB, even late violation, undo update operations orderly can not easily be achieved.
+There is no global chronological log order, and the existence of partial failure makes it is hard to guarantee the undo order only by local log order.
+If possible, the performance can be unacceptable because the scheduler must backtrace many log records when normal transaction processing rather than system recovery.
 
 
-If lock violation schduler undo write by wrong order, it may be produce anomaly.
-Suppose two tuples $x$ and $y$ located at two nodes.
+
+
+If the lock violation scheduler undoes write by the wrong order, it may produce an anomaly.
+Suppose two tuples $x$ and $y$ locate at two nodes.
 There are distrubted transaction $T_1$ and $T_2$ accessing $x$, $y$.
 Suppose there is a global schedule,
 
@@ -544,7 +563,7 @@ in which ${w^-_i[x]}$ denotes that ${T_i}$ undoes its write on ${x}$.
 
 \begin{center}
   ${exp(H_5) =  w_1[x]w_1[y]r_2[x] w_2[y]}$
-  ${w^-_1[x]w^-_1[y]  c_1, w^-_2[y]c_2}$
+  ${w^-_1[x]w^-_1[y]  c_1 w^-_2[y]c_2}$
 \end{center}
 
 
@@ -585,9 +604,9 @@ steps & $h_1$ & $x$ & $h_2$ & $y$ & undo   \\
 
 
 Suppose the initial values of ${x}$ and ${y}$ are both 0.
-Table~\ref{tbl:x_y_vlues} shows the local history ${h_1}$, ${h_2}$ and how these values change as we carry out the operations in $exp(H)$.
+Table~\ref{tbl:x_y_vlues} shows the global steps of local schedule ${h_1}$, ${h_2}$ and how these values change as we carry out the operations in $exp(H)$.
 As we can see, after both ${T_1}$ and ${T_2}$ abort, the value of ${y}$ becomes 1, which is incorrect.
-This is because $exp(H)$ performed the undo operations in the wrong order.
+This anaomly is because $exp(H)$ performed the undo operations in the wrong order.
 In other words, when performing cascade abort, we cannot abort each transaction independently.
 Instead, we have to follow the reserve order of the write operations to perform the recovery.
 For ${H_5}$, a correct recovery schedule may be:
@@ -600,17 +619,19 @@ To tackle this problem, we need a more complex algorithm, such as SOT \cite{Unif
 To reduce complexity, DLV maintains multiple versions only in memory and applies the no-steal policy to data persistence.
 The no-steal policy forbids the system from writing uncommitted data to permanent storages.
 As a drawback, it may consume more memory space.
-Considering that today's database servers are usually equipped with large RAM, this is no longer a big concern.
-Based on this design, we do not need undo log anymore. If a transaction aborts, we only need to discard its uncommitted data in memory.
-The no-steal policy has another advantage in GDDB, that is, it pushes the work of data synchronization to the commit phase.
-Thus, through lock violation we can exclude data synchronization completely from the lock holding duration. 
-When multiple concurrent transactions modify the same piece of data, this data can have multiple versions in memory.
+Considering that today's database servers usually have large RAM, this is no longer a big concern.
+Based on this design, we need no undo logs anymore. If a transaction aborts, we only need to discard its uncommitted data in memory.
+The no-steal policy has another advantage in GDDB.
+No-steal it pushes the work of data synchronization to the commit phase.
+Thus, through lock violation, we can exclude data synchronization completely from the lock holding duration. 
+When multiple concurrent transactions modify the same data, this data can have multiple versions in memory.
 Therefore, DLV needs to maintain a version list for each data item.
-In the permanent storage, there is only one version for each data item, which is the newest committed version.
+There is only one version for each data item in the permanent storage, which is the newest committed version.
+
 
 Fig.~\ref{fig:versions_example} illustrates an example how DLV handle $ww$ dependencies when transaction abort.
 Suppose the transactions accessed two rows of data, ${x}$ and ${y}$.
-In the version lists, the green rectangles represent the uncommitted versions of the data and the red ones represent committed versions.
+The green rectangles represent the uncommitted versions of the data in the version lists, and the red ones represent committed versions.
 We can see that although there is a ${ww}$ dependency ${w_6[x] \rightarrow w_4[x]}$,
 the abort of $T_4$ does not require ${T_6}$ to abort.
 \begin{figure}[htbp]
@@ -644,64 +665,68 @@ the abort of $T_4$ does not require ${T_6}$ to abort.
 
 \subsection {Deadlock Handling}
 There are various approaches to handle deadlock.
-We choose two typical ones to discuss how lock violation can adapt to deadlock handle.
+We choose two typical ones to discuss how a lock violation scheduler can adapt to the deadlock handle mechanism.
 
 Deadlock detection is most widely used by centralized DB.
 Deadlock detection strategies are generally
 based on tracing waits-for graph (WFG).
-DLV implement non-centralized deadlock detection use \emph{path pushing} approach . %TODO
+DLV implement non-centralized deadlock detection use \emph{path pushing} approach . 
 For early violation, 
-only the truely locking wait transactions but also lock violation transactions would contribute edges to WFG. 
-Additional edges in WFG at any time, in turn, lead  more likely deadlock and greater abort rate.
-Late violation would not violate serializability and violation action need not be traced by deadlock detection.
+not only the locking wait transactions but also the lock violation transactions would contribute edges to WFG. 
+Additional edges in WFG at any time, in turn, lead more likely deadlock and a greater abort rate.
+The late violation would not violate serializability, and  
+deadlock detection need not trace lock violation action.
 
 Another approach to handle deadlocks is deadlock prevention.
-We adopts the \emph{wait-die} protocol to prevent deadlocks and preserve serializability.
+We adopt the \emph{wait-die} protocol to prevent deadlocks and preserve serializability.
 A transaction is assigned a unique timestamp when it starts.
 (This does not require a centralized timestamp allocator.
-Each node can generate a unique timestamp for its transactions by combining its local clock time and its node id.)
-Then, conflicting transactions can be ordered by their timestamps.
+Each node can generate a unique timestamp for its transactions by combining its local clock time and node id.)
+Then, conflicting transactions can order by their timestamps.
 Following the wait-die protocol, a transaction will wait if it attempts to access a data item locked by a transaction with a larger timestamp.
-If the item is locked by a transaction with a smaller timestamp, it will abort.
-By only allowing a transaction to violate a lock with greater transaction id, 
+If a transaction locks a row with a smaller timestamp, it will abort.
+By only allowing a transaction to violate a lock with a larger transaction id, 
 it can guarantee that the data dependencies are acyclic.
 Similar deadlock detection approach,
-early lock violation scheduler must apply the \emph{wait-die} protocol for violaiton action to ensure serializability, but it is not necessary for late violation.
+early lock violation scheduler must apply the \emph{wait-die} protocol for violation action to ensure serializability, but it is not necessary for late violation.
 
 
 \section{Experiments and Evaluations}
 \label{sec:experiments}
 We developed a GDDB engine to evaluate the performance of \emph{DLV}.
 We compared different types of \emph{DLV} against the traditional S2PL approach. 
-In the implementation of S2PL, we used the wait-die policy to resolve deadlocks, as it is known as one of the most efficient approaches in geo-distributed databases.
-When the wait-die policy is employed, aborts, instead of blocking, will be the main obstacle of performance. 
+To handle deadlock, we choose to evaluate two approaches.
+First,  we perform the wait-die deadlock prevention policy.
+When the wait-die policy is employed, aborts will be the main obstacle to performance instead of blocking. 
+Second, we also implement a de-centralized path-push deadlock detection approach.
+When using the deadlock detection algorithm,  blocking on locks is the most performance restriction if the DB is infrequently deadlocked.
 
 \subsection{Experimental Setting}
 \label{subsec:exp_setting}
-Our experiments were performed on a cluster of 13 Aliyun ecs.g6.3xlarge servers.
-Each server was equipped with 12 virtual CPU cores of 2.5GHz and a 48GiB RAM. The OS was Ubuntu 18.04.
-Twelve of the servers were used to deploy the transaction engine.
-The data were partitioned into 4 shards. 
-Each shard had 3 replicas spread across 3 AZs, 
-which were located at Heyuan (South China), Hangzhou (East China), and Zhangjiakou (North China).
+Each server has 12 virtual CPU cores of 2.5GHz and a 48GiB RAM. 
+The OS was Ubuntu 18.04.
+We take twelve of the servers to deploy the transaction engine.
+The database partitioned its data into four shards. 
+Each shard had three replicas spread across three AZs, 
+which are at Heyuan (South China), Hangzhou (East China), and Zhangjiakou (North China).
 Every AZ had a full copy of each shard of data.
 The internal network bandwidth in each AZ was 1Gbps.
-One of the servers was used as the client node, dedicated to issuing transaction requests. 
+We use one of the servers as the client node dedicated to issuing transaction requests. 
 In the experiments, if a transaction aborted due to confliction, it would be retried in 2 seconds.
 We used the TPC-C and YCSB benchmarks to perform the evaluation. 
 
 
 TPC-C~\cite{TPCC:conf/tpctc/NambiarWMTLCM11} models a real-world scenario, in which a company sells products through multiple warehouses in different districts, and customers order products and pay bills.
-In our version of TPC-C, we partitioned the data into 4 shards mainly by the warehouse IDs.
-The item table was replicated across all the shards.
+In our version of TPC-C, we partitioned the data into shards mainly by the warehouse IDs.
+The DB replicated the item table across all the shards.
 As our purpose was to evaluate the performance of distributed transactions,
 we made all the transactions distributed by enforcing each transaction to order items from warehouses located at different nodes.
-We excluded the think time, and only measured the performance of the NewOrder transactions.
+We excluded the think time of TPC-C and only measured the performance of the NewOrder transactions.
 
 
 YCSB~\cite{YCSB:conf/cloud/CooperSTRS10} was originally designed to evaluate NoSQL databases.
 Its transactions are relatively simple.
-Each YCSB transaction accesses nearly 10 rows of data according to a Zipfian distribution.
+Each YCSB transaction accesses nearly ten rows of data according to a Zipfian distribution.
 By adjusting the degree of skewness of the Zipfian (i.e., the parameter \emph{theta}), we can customize the degree of contention.
 We partitioned the YCSB data by the primary key of the main table.
 To make all transactions distributed, we forced each transaction to access at least two shards.
@@ -729,7 +754,7 @@ Metric & \tabincell{c}{Definition}   \\
 
 In the first set of experiments, we evaluated how geo-replication affects the performance of transaction processing.
 We simulated geo-replication in a single AZ. 
-Namely, we put all replicas in the same AZ and artificially increased the communication latency among the replicas. 
+Namely, we put all replicas in the same AZ and artificially increased the replicas' communication latency. 
 We used the TPC-C workload, in which we set the number of warehouses to 20 and the number of concurrent clients connected to each shard to 100.
 Fig.~\ref{fig:new_order_add_log_cost} shows how the throughput and the abort rate of TPC-C changed with the increased replication latency.
 Geo-replication has a great impact on performance. The higher the replication latency, the lower the throughput of transaction processing.
@@ -740,7 +765,7 @@ As all the candidate schedulers adopted the wait-die policy, transactions normal
 Therefore, the abort rates measure how the performance was affected by contention.
 The result shows that DLV1x and DLV2 could deal with contention better than the others.
 As they release locks earlier than S2PL, they are subject to less contention than S2PL. (DLV1x releases locks earlier than DLV2.) 
-While DLV0 and DLV1 perform lock violation too, they suffer from an increased chance of serializability breach and cascade aborts.
+While DLV0 and DLV1 perform early lock violation, they suffer from an increased chance of serializability breach and cascade aborts.
 Therefore, their abort rates were also high in the experiments.
 
 \begin{figure}[htbp]
@@ -762,7 +787,7 @@ different terminal different log write costs}
 
 \subsection{Impact of Contention}
 
-Our second set of experiments aim to evaluate how the degree of contention affects the performance of transaction processing.
+Our second set of experiments aim to evaluate how the degree of contention affects transaction processing performance.
 We used both the TPC-C workload and the YCSB workload.
 We ran all the experiments in a real geo-replication environment described in Section~\ref{subsec:exp_setting}.
 In the experiments, we adopted the gathered mode, which assumes that all replica leaders co-locate in the same AZ. 
@@ -797,7 +822,7 @@ The smaller the number of warehouses, the higher the degree of contention.
 As we can see, when the number of warehouses was 10, DLV outperformed S2PL by up to 2 times.
 
 Fig.~\ref{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather} shows how the throughput of transaction processing varied according to the percent of the transaction request accessing hot rows.
-The performance of DLV is 3 times higher than that of S2PL when the possibility of the transaction accessing hotspot reaches 0.8.
+DLV's performance is three times higher than that of S2PL when the possibility of the transaction accessing hotspot reaches 0.8.
 
 From Fig.~\ref{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather} and 
 Fig.~\ref{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather}, 
@@ -830,9 +855,9 @@ Similar to the results on TPC-C, DLVs outperformed S2PL, and DLV1x performed the
 
 \subsection{On Scalability}
 
-To evaluate the scalability of distributed transactions, we conducted experiments in both the gathered mode and the scattered mode.
+To evaluate distributed transactions' scalability, we conducted experiments in both the gathered mode and the scattered mode.
 In the gathered mode, all the replica leaders are in the same AZ. 
-The gathered mode is the most common mode, in which servers in the leaders' AZ served the requests mainly, and servers in other AZs are for the replication purpose only. 
+The gathered mode is the most common mode, in which servers in the leaders' AZ served the requests mainly, and servers in other AZs are only for the replication purpose. 
 In the scattered mode, the replica leaders may spread across different AZs. 
 Large-scale Web applications usually adopt this mode, which intentionally makes their service available everywhere.
 
@@ -917,10 +942,10 @@ DLV2 and DLV1x have less non-available time for less false positive speculation.
 
 \subsection{Experimental Conclusion}
 
-In conclusion, our experimental evaluation showed that the geo-replication can have a big negative impact on the performance of distributed transactions.
+In conclusion, our experimental evaluation showed that the geo-replication could have a big negative impact on distributed transactions' performance.
 Besides the overheads of data synchronization incurred by replication, the prolonged lock holding time is also a main contributor to the degraded performance.
-We demonstrated that lock violation can be an effective measure to shorten the lock holding time and thus boost the performance of GDDB.
-To harness the benefit of lock violation, it is important to find the right time to release the locks.
+We demonstrated that lock violation could be an effective measure to shorten the lock holding time and boost the performance of GDDB.
+It is important to find the right time to release the locks  to harness the benefit of lock violation
 Our evaluation also showed that late lock violation is superior to early lock violation in most cases, as it is much less prone to high abort rates.
 
 
@@ -931,11 +956,11 @@ This paper discussed the application of lock violation in geo-replicated distrib
 Lock violation is not only concerned with the concurrency control mechanism, but it is also related to the modules of recovery and persistence.
 Therefore, its adoption requires a holistic redesign of the transaction processor. 
 In this paper, we proposed such a holistic design and conducted experiments to evaluate its effectiveness.
-The results showed that lock violation can boost the performance of a geo-replicated distributed database, especially when the degree of contention is high.
-Moreover, we found that not all lock violation approaches can be beneficial. We identified the right time to perform violation, so as to maximize its effects. 
+The results showed that lock violation could boost the performance of a geo-replicated distributed database, especially when the degree of contention is high.
+Moreover, we found that not all lock violation approaches can be beneficial. We identified the right time to perform violation, to maximize its effects. 
 
 Distributed transaction remains a challenge to our research community. Recent progress of the HA technologies has made distributed transactions less vulnerable to failures.
-However, the performance of distributed transactions in general still falls short of the requirements of many mission-critical applications.
+However, the performance of distributed transactions in general still falls short of many mission-critical applications' requirements.
 While lock violation is an effective technique to optimize distributed transactions, it is far from an ultimate solution.
 As we can see in our experimental evaluation, even with this optimization, the general performance of distributed transactions is sometimes unsatisfactory.
 Considering the ever-increasing scale of modern Web applications, We believe that further research on distributed transaction is not only necessary but important.
