@@ -804,16 +804,16 @@ Table~\ref{tbl:metric} shows the metrics we used in our evaluation.
 In the first set of experiments, we evaluated how geo-replication affects the performance of transaction processing.
 We simulated geo-replication in a single AZ.
 Namely, we put all replicas in the same AZ and artificially increased the replicas' communication latency.
-We used the TPC-C workload, in which we set the number of warehouses to 20 and the number of concurrent clients connected to each shard to 100.
+We used the YCSB workload, in which we set the value of \emph{theta}- to 0.2 and the number of concurrent clients connected to each shard to 100.
 Fig.~\ref{fig:new_order_add_log_cost} shows how the throughput and the abort rate of TPC-C changed with the increased replication latency.
 Geo-replication has a great impact on performance. The higher the replication latency, the lower the throughput of transaction processing.
 
 We can also see that the DLVs performed significantly better than traditional S2PL in the experiments.
 DLV1x outperformed S2PL by 2-3 times when the replication latency is high.
-As all the candidate schedulers adopted the wait-die policy, transactions normally chose to abort when confronted with serious contention.
+As the late vioilation scheduler schedulers adopted the wait-die policy, transactions normally chose to abort when confronted with serious contention.
 Therefore, the abort rates measure how the performance was affected by contention.
-The result shows that DLV1x and DLV2 could deal with contention better than the others.
-As they release locks earlier than S2PL, they are subject to less contention than S2PL. (DLV1x releases locks earlier than DLV2.)
+The result shows that DLV1x and DLV1 could deal with contention better than the others.
+As they violate locks earlier than S2PL, they are subject to less contention than S2PL. (DLV1x releases locks earlier than DLV2.)
 While DLV0 and DLV1 perform early lock violation, they suffer from an increased chance of serializability breach and cascade aborts.
 Therefore, their abort rates were also high in the experiments.
 
@@ -821,15 +821,15 @@ Therefore, their abort rates were also high in the experiments.
   %cloud setting
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.4] {figure/plot_tpcc_neworder_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
+  \subfloat[]
+      { \includegraphics[scale=0.4] {figure/plot_ycsb_add_LogForceT_LogForceT_TPM_gather} \label{fig:ycsb_add_log_cost:tpm}}
 
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.4]{figure/plot_tpcc_neworder_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
+  \subfloat[]
+      { \includegraphics[scale=0.4]{figure/plot_ycsb_add_LogForceT_LogForceT_Abort_gather} \label{fig:ycsb_add_log_cost:abort}}
 
 \caption{throughput and abort rate of
-different terminal different log write costs}
+different terminal different log write costs, using YCSB workload}
 \label{fig:new_order_add_log_cost}
 \end{figure}
 
@@ -877,8 +877,9 @@ From Fig.~\ref{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather} and
 Fig.~\ref{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather},
 we can see that contention had a big impact on performance. When the degree of contention decreased, the throughput rose quickly.
 The DLVs performed better than S2PL in general, as lock violation had shortened their lock holding time, especially when the degree of contention is high.
-DLV0 and DLV1 do not improve throughput a great because it has a more abort rate than S2PL.
-Among the DLVs, DLV1x performed the best, as it suffered less from blocking conflicts locks and cascade aborts.
+DLV0 and DLV1 do improve throughput when it has a little abort rate than S2PL.
+Among the DLVs, DLV0 and DLV1 perform well on medium contention. 
+
 
 \begin{figure}[tbp]
   \centering
@@ -914,8 +915,8 @@ Fig. ~\ref{fig:new_order_add_terminal_gathered} shows the performance of distrib
 We fixed the number of warehouses to 40.
 Then we gradually increased the number of clients until the system was saturated.
 We can see that DLVs outperformed S2PL in general.
-The maximum throughput S2PL could achieve around 31,000 TPM (Transactions per Minute),
-while the throughput of DLV1x could achieve 59,000 TPM.
+The maximum throughput S2PL could achieve around 41,000 TPM (Transactions per Minute),
+while the throughput of DLV0 and DLV1x could achieve 70,000 TPM.
 
 
 Fig. ~\ref{fig:new_order_add_terminal_scattered}  shows the TPC-C evaluation results in the scattered mode.
@@ -966,7 +967,9 @@ When the test reaches the maximum number of concurrent terminals, DLV1x is twice
       { \includegraphics[scale=0.4]{figure/plot_ycsb_add_Terminal_Terminal_Abort_gather} \label{fig:ycsb_add_terminal_gathered:abort}}
 
 
-\caption{throughput and abort rate when adding terminal number of each shard, in gathered mode}
+\caption{throughput and abort rate when adding terminal number of each shard,
+(p) label stands the scheduler use wait-die for deadlock prevention, and (b) label means the scheduler use deadlock detection. 
+}
 \label{fig:ycsb_add_terminal_gathered}
 \end{figure}
 
@@ -984,6 +987,7 @@ When the test reaches the maximum number of concurrent terminals, DLV1x is twice
 Due to speculation and cascade abort, the database would take more time to abort running transactions when a failure occurs.
 In our final evaluation of our experiments, we evaluate the non-availability time of different algorithms after an AZ failure.
 Fig~\ref{fig:plot_availability:tpm} shows how throughput changes over time elapsed during one AZ failure.
+In this experiment, we apply wait-die for all the schedulers to prevention deadlock. 
 This result shows DLV0, DLV1 endures longer non-available time after an AZ failure.
 DLV2 and DLV1x have less non-available time for less false positive speculation.
 
