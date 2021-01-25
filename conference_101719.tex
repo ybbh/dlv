@@ -1135,9 +1135,12 @@ Therefore, its adoption requires a holistic redesign of the transaction processo
 In this paper, we proposed such a holistic design and conducted experiments to evaluate its effectiveness.
 The results showed that lock violation could boost the performance of a geo-replicated distributed database, especially when the degree of contention is high.
 Moreover, we found that not all lock violation approaches can be beneficial. We identified the right design of lock violation, to maximize its effects.
+DLV cannot reduce the transaction's latency, but it enables the parallelism of transaction actions.
+It consolidates many lock wait on a final halt on transaction prepare.
 We found that more idle resources allow the database use more agressive lock viiolation technique and deadlock detection to procesely avoid false positive abort.
-When the system  reached its saturation point, the database could choose 
-conservative violation.
+When the system reached its saturation point, the database could choose 
+conservative violation since late violation has less dependency maintaining and abort cost.
+Atomicity deciding opportunities to conducting DLV achieve performance can be as future work.
 
 Distributed transaction remains a challenge to our research community. Recent progress of the HA technologies has made distributed transactions less vulnerable to failures.
 However, the performance of distributed transactions in general still falls short of many mission-critical applications' requirements.
