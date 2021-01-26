@@ -18,7 +18,9 @@
 % inlined bib file
 \usepackage{filecontents}
 \usepackage{flushend}
+\usepackage{color}
 
+\definecolor{revision}{rgb}{0,0,255}
 
 \algrenewcommand\textproc{}% Used to be \textsc
 \newcommand{\pushcode}[1][1]{\hskip\dimexpr#1\algorithmicindent\relax}
@@ -74,10 +76,8 @@ Database System, Distributed Transaction, Locking, High Availability
 Modern distributed database systems scale out by partitioning data across multiple servers,
 so as to increase throughput by running transactions in parallel.
 When a transaction needs to access multiple partitions, it has to employ a coordination protocol to ensure atomicity.
-Such distributed transactions may lead to significant performance degradation, mainly due to the following reasons\cite{Calvin:conf/sigmod/ThomsonDWRSA12}:
-
+Such distributed transactions may lead to significant performance degradation, mainly due to the two reasons\cite{Calvin:conf/sigmod/ThomsonDWRSA12}:
 1. Coordinated commit requires a chatty protocol, such as Two-Phase Commit (2PC), which introduces tremendous network overheads;
-
 2. Message transmission overlaps with the critical path of transaction commit, which worsens the contention among transactions.
 
 These issues can be more severe for geo-replicated databases, which face increased network overheads.
@@ -88,7 +88,7 @@ If the placement of chunks cannot be predetermined, cross-chunk transactions (ra
 This makes distributed transactions even more inevitable.
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=0.8]{figure/architecture.pdf}}
+  \centerline{\includegraphics[scale=0.7]{figure/architecture.pdf}}
   \caption{Typical architecture of GDDB}
   \label{fig:architecture}
 \end{figure}
@@ -104,7 +104,7 @@ It may fail to scale when confronted with a highly contended workload.
 
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=0.60]{figure/message_flow.pdf}}
+  \centerline{\includegraphics[scale=0.50]{figure/message_flow.pdf}}
   \caption
   {
 The DB uses S2PL for concurrency control and 2PC as the commit protocol.
@@ -134,40 +134,19 @@ The following is a situation:
 a second transaction ${R}$ reads ${T}$'s write on ${x}$ and commits successfully.
 (3) Before the \emph{RM} persists its commit log, the node it resides on fails. 
 (4) After the node recovers, the \emph{RM} re-enters an uncertain state, as it cannot remember it has received a commit message. At this time, as the lock has been released, a third transaction ${S}$ may choose to read an older version of ${x}$, which may lead to violation of linearizability.
-%change end
 
-
-
-\begin{table}[tbp]
-  \centering
-  \caption{network message RTT on Alibaba ECS}
-  \scalebox{1}{
-  %\begin{adjustbox}{width=10,center}
-  \begin{tabular}{|c|c|c|}
-  \hline
-\textbf{From - To Cities} & \textbf{Network Type} & \textbf{RTT}    \\
-\hline
-Hangzhou - Hangzhou & same AZ LAN & 0.123ms \\
-\hline
-Hangzhou - Hangzhou & different AZs WAN & 1.96ms \\
-\hline
-Hangzhou - Heyuan & different states/provinces WAN & 33.5ms \\
-
-\hline
-Virginia - Frankfurt & different continents WAN & 98.6ms \\
-\hline
-Hangzhou - Frankfurt & different continents WAN &206ms \\
-  \hline
-  \end{tabular}}
-  %\end{adjustbox}
-
-\label{tbl:network_rtt}
-\end{table}
 
 Lock duration of transaction commit in such an architecture, i.e., the red line in Fig.~\ref{fig:message_flow}, involves multiple messages round trips over the WAN.
-Table~\ref{tbl:network_rtt} shows the RTT of different geo-replication setups on Alibaba ECS servers.
+And there was also message between LAN.
+Different newtwork environment have different RTT(round trip time).
+For exampele, take Alibaba ECS servers as an example.
+The RTT between two servers in the same AZ is about 0.12ms and the RTT in the different city of is 1.96ms.
+RTT of servers in different city of same continents can be 33.5ms(from Hangzhou to Heyuan).
+On different continents, the RTT could be 98.6ms(from Virginia to Frankfurt), 206ms(from Hangzhou to Frankfurt)
 It is apparent that geo-replication can remarkably amplify lock duration and worsen the contention among transactions.
-Consider that the RRT over a WAN is around 30-200 milliseconds, while a transaction within a LAN can be finished within 1 millisecond.
+Consider that the RRT over a geo-distributed WAN is around 30-200 milliseconds, while a transaction 
+This huge difference of RTT let use consider exploit  
+speculative technique to reduce lock blocking.
 
 Speculative techniques, such as Early Lock Release (ELR) \cite{EfficientLocking:conf/vldb/KimuraGK12} and Controlled Lock Violation (CLV)
 \cite{CLV:conf/sigmod/GraefeLKTV13}, prove to be effective in optimizing centralized transaction processing.
@@ -186,7 +165,8 @@ while it may lose opportunity of harnessing more concurrency.
 Moreover, not all transactions can benefit from CLV or ELR, e.g., workload with little conflict.
 It is unnecessary and even harmful to apply speculation to all cases.
 
-The contribution of this paper can be summarized as follows.
+The contribution of this paper can be summarized as follows:
+
 %{change begin}
 1. To the best of our knowledge, this is the first study of lock violation on GDDB.
 We found that CLV does not has adequate information
@@ -223,13 +203,13 @@ Section \ref{sec:conclusion} concludes this paper.
 Most replicated databases rely on state-machine replication (SMR) to realize high availability.
 SMR often uses a consensus protocol to synchronize replicas.
 The synchronization introduces a significant amount of network traffic and becomes a significant overhead of replicated database systems.
-Paxos~\cite{Paxos:journals/tocs/Lamport98}\cite{PaxosSimple:conf/opodis/Lamport02} is the most well known consensus protocol.
+Paxos~\cite{Paxos:journals/tocs/Lamport98} is the most well known consensus protocol.
 To reach a consensus on a single data update in Paxos, it costs two message round trips, one for choosing a proposal and another for proposing the entry.
 Multidecree Paxos\cite{Multidecree:journals/csur/RenesseA15} elects a leader as the only proposer to eliminate the first message round trip.
 Raft\cite{Raft:conf/usenix/OngaroO14} is a similar consensus protocol to Paxos.
 Modern database systems widely use Raft, as it is more understandable than Paxos.
 In Raft, it costs at least one message round trip to reach a consensus.
-Google Spanner \cite{Spanner:conf/osdi/CorbettDEFFFGGHHHKKLLMMNQRRSSTWW12}\cite{Spanner:conf/sigmod/BaconBBCDFFGJKL17},
+Google Spanner \cite{Spanner:conf/osdi/CorbettDEFFFGGHHHKKLLMMNQRRSSTWW12},
 NuoDB \cite{NuoDB}, CockroachDB \cite{CockroachDB} and TiDB \cite{TiDB} are all geo-replicated DBMSes built upon Paxos or Raft.
 They all face heavy costs incurred by data synchronization and consensus.
 
@@ -288,7 +268,7 @@ Many other works applied and evaluated ELR in different types of systems
 \cite{Aether:journals/pvldb/JohnsonPSAA10}.
 %{change begin}
  \cite{CLV:conf/sigmod/GraefeLKTV13} 
- Controlled lock violation (CLV) \cite{CLV:conf/sigmod/GraefeLKTV13}  is a competitor of ELR. 
+CLV is a competitor of ELR. 
  It is simpler, more robust, and more precise than ELR.
  It allows specific transactions to ignore conflict locks instead of releasing a lock completely.
  ELR can only optimize the two-phase commit's final phase, but CLV can optimize both phases of the two-phase commit.
@@ -335,7 +315,7 @@ How DLV applies to DP and NDP transactions would be discussed later.
 
 \begin{figure}[tbp]
     \centering
-    \captionsetup[subfigure]{oneside,margin={0.3cm,0cm}}
+    \captionsetup[subfigure]{oneside,margin={0.2cm,0cm}}
     \subfloat[NDP transaction, ${RM}$ knows nothing about other ${RM}$'s state when receiving \emph{Prepare}]
         { \includegraphics[scale=1] {figure/transaction_oneshot}  \label{fig:transaction_NDP}  }
     \captionsetup[subfigure]{oneside,margin={0.3cm,0cm}}
@@ -362,7 +342,7 @@ Let ${c_i}$, ${a_i}$, ${p^c_i}$, ${p^a_i}$ denote the commit, abort, prepare-to-
 
 A transaction schedule is a collection ${H = \{h_1, h_2, ..., h_n\}}$.
 Each ${h_u}$ is the local schedule of $H$ on the node ${s_u}$, which is a sequential history of operations issued by different transactions.
-For instance, Fig. \ref{fig:strict_example} illustrates a transaction schedule over three nodes.
+%For instance, Fig. \ref{fig:strict_example} illustrates a transaction schedule over three nodes.
 
 \subsubsection{Deterministic and Non-deterministic Abort}
 
@@ -406,8 +386,8 @@ Strictness implies that a transaction cannot read a previous write by another tr
 Strictness is not a necessary condition for a correct schedule.
 Although it simplifies the implementation of a database system, it sacrifices the concurrency of transaction processing.
 
-For instance, the schedule ${H_1}$ of Fig. \ref{fig:strict_example} is serializable and strict.
-(The data dependencies include ${r_1[x] \rightarrow w_3[x]}$, ${w_1[x] \rightarrow r_2[y]}$, ${r_2[y] \rightarrow w_3[x]}$, which are not cyclical.)
+%For instance, the schedule ${H_1}$ of Fig. \ref{fig:strict_example} is serializable and strict.
+%(The data dependencies include ${r_1[x] \rightarrow w_3[x]}$, ${w_1[x] \rightarrow r_2[y]}$, ${r_2[y] \rightarrow w_3[x]}$, which are not cyclical.)
 In contrast, ${H_2}$ in Fig. \ref{fig:non_strict_example} is serializable but not strict.
 As we can see, there are three records ${x}$, ${y}$, ${z}$, residing on ${s_1}$, ${s_2}$, ${s_3}$ respectively.
 ${T_1}$ writes ${y}$ and ${x}$.
@@ -417,25 +397,19 @@ By violating strictness, ${H_2}$  enables a higher degree of concurrency.
 
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=1]{figure/schedule_strict.pdf}}
-  \caption{A strict and serializabile schedule ${H_1}$}
-  \label{fig:strict_example}
-\end{figure}
-
-\begin{figure}[tbp]
-  \centerline{\includegraphics[scale=1]{figure/schedule_non_strict.pdf}}
+  \centerline{\includegraphics[scale=0.8]{figure/schedule_non_strict.pdf}}
   \caption{A non-strict but serializabile schedule ${H_2}$}
   \label{fig:non_strict_example}
 \end{figure}
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=1]{figure/schedule_not_serializabile.pdf}}
+  \centerline{\includegraphics[scale=0.8]{figure/schedule_not_serializabile.pdf}}
   \caption{Schedule ${H_3}$, ${T_1}$ abort due to non-serializabile}
   \label{fig:schedule_abort_example}
 \end{figure}
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=1]{figure/schedule_not_recoverable.pdf}}
+  \centerline{\includegraphics[scale=0.8]{figure/schedule_not_recoverable.pdf}}
   \caption{Schedule ${H_4}$, ${T_2}$ commit ahead ${T_1}$, non-recoverable anomaly}
   \label{fig:schedule_not_recoverable}
 \end{figure}
@@ -589,7 +563,7 @@ However, early violation needs to trace all \emph{rw, ww, wr} dependencies, whil
 
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=0.7]{figure/lock_violation_safe.pdf}}
+  \centerline{\includegraphics[scale=0.5]{figure/lock_violation_safe.pdf}}
   \caption
   {The green dash line shows the safe violation time of late violation.
   Early lock violation has no safe violation time.
@@ -729,27 +703,30 @@ the abort of $T_4$ does not require ${T_6}$ to abort.
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[\small ${H_a = w_1[x_0]w_1[y_0]c_1w_2[x_1]w_3[x_2]w_3[y_1]w_4[x_3]}$]
+  \subfloat[${H_a}$]
   {
-    \includegraphics[scale=1.5] {figure/version1} \label{fig:versions_a}}
+    \includegraphics[scale=1.0] {figure/version1} \label{fig:versions_a}}
     \captionsetup[subfigure]{margin={0cm,0cm}
   }
-  \subfloat[\small ${H_b = H_a c_2r_5[y_3]w_6[x_4]}$]
+  \subfloat[\small ${H_b}$]
   {
-    \includegraphics[scale=1.5]{figure/version2} \label{fig:versions_b}
+    \includegraphics[scale=1.0]{figure/version2} \label{fig:versions_b}
   }
     \captionsetup[subfigure]{margin={0cm,0cm}
   }
-  \subfloat[\small ${H_c = H_b a_3a_5}$]
+  \subfloat[\small ${H_c}$]
   {
-    \includegraphics[scale=1.5] {figure/version3} \label{fig:versions_c}}
+    \includegraphics[scale=1.0] {figure/version3} \label{fig:versions_c}}
     \captionsetup[subfigure]{margin={0cm,0cm}}
-    \subfloat[\small ${H_d = H_c c_4r_6[y_1]c_6}$]
-      { \includegraphics[scale=1.5]{figure/version4} \label{fig:versions_d}
+    \subfloat[\small ${H_d}$]
+      { \includegraphics[scale=1.0]{figure/version4} \label{fig:versions_d}
   }
   \caption{\emph{ww}-dependencies are not required for recovery.
   ${x_i}$ represents the version of $x$ created by ${T_i}$.
- Then, $w_j[x_i]$ represents that ${T_j}$ overwrites the write of ${T_i}$ on $x$.
+ Then, $w_j[x_i]$ represents that ${T_j}$ overwrites the write of ${T_i}$ on $x$. In the history, ${H_a = w_1[x_0]w_1[y_0]c_1w_2[x_1]w_3[x_2]w_3[y_1]w_4[x_3]}$, 
+ ${H_b = H_a c_2r_5[y_3]w_6[x_4]}$,
+ ${H_c = H_b a_3a_5}$, 
+ ${H_d = H_c c_4r_6[y_1]c_6}$
 }
 \label{fig:versions_example}
 \end{figure}
@@ -757,11 +734,10 @@ the abort of $T_4$ does not require ${T_6}$ to abort.
 
 \subsection {Deadlock Handling}
 \label{sec:deadlock_handling}
-Even when we apply lock violation, deadlock can still occur.
+When we apply lock violation, deadlock can occur.
 There are various approaches to handle deadlock.
 %We choose two typical ones to discuss how a lock violation scheduler can adapt to the deadlock handle mechanism.
 Deadlock detection is the most widely used approach in a centralized DB.
-
 Deadlock detection needs to maintain a waits-for graph (WFG).
 In a distributed environment, maintaining a WFG is expensive.
 Another approach to handling deadlock is deadlock prevention, which is simpler but more restrictive.
@@ -839,27 +815,8 @@ By adjusting the skewness of the Zipfian (i.e., the parameter \emph{theta}), we 
 We partitioned the YCSB data by the primary key of the main table.
 To make all transactions distributed, we forced each transaction to access at least two shards.
 
-Table~\ref{tbl:metric} shows the metrics we used in our evaluation, which include throughput and abort rate.
+We evaluation the performance by TPM(the number of transactions committed in each minute).
 
-\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
-\begin{table}[tbp]
-  \caption{Metrics for Evaluation }
-  \begin{center}
-
-  \begin{tabular}{|r|c|}
-    \hline
-    \textbf{Metric} & \tabincell{c}{\textbf{Definition}}   \\
-    \hline
-    \hline
-    TPM & \tabincell{c}{ the number of transactions committed in each minute}  \\
-    \hline
-    Abort Rate & \tabincell{c}{the proportion of transactions that fail to commit }  \\
-    \hline
-    \end{tabular}
-  \end{center}
-
-\label{tbl:metric}
-\end{table}
 
 \subsection{Deadlock Detection vs Deadlock Prevention}
 
@@ -882,11 +839,11 @@ The results of the experiments are shown in Fig.~\ref{fig:ycsb_deadlock}
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB TPM]
-      { \includegraphics[scale=0.3] {figure/plot_ycsb_add_Terminal_Terminal_TPM_gather} \label{fig:ycsb_add_terminal_gathered:tpm}}
+      { \includegraphics[scale=0.35] {figure/plot_ycsb_add_Terminal_Terminal_TPM_gather} \label{fig:ycsb_add_terminal_gathered:tpm}}
 
       \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB abort rate]
-      { \includegraphics[scale=0.3]{figure/plot_ycsb_add_Terminal_Terminal_Abort_gather} \label{fig:ycsb_add_terminal_gathered:abort}}
+      { \includegraphics[scale=0.35]{figure/plot_ycsb_add_Terminal_Terminal_Abort_gather} \label{fig:ycsb_add_terminal_gathered:abort}}
 
 
             
@@ -936,11 +893,11 @@ The result shows that DLV1x could deal with contention better than DLV2 and S2PL
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[]
-      { \includegraphics[scale=0.3] {figure/plot_ycsb_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
+      { \includegraphics[scale=0.35] {figure/plot_ycsb_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}}
 
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[]
-      { \includegraphics[scale=0.3]{figure/plot_ycsb_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
+      { \includegraphics[scale=0.35]{figure/plot_ycsb_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}}
 
 \caption{Impact of Geo-distance on Performance}
 \label{fig:new_order_add_log_cost}
@@ -958,11 +915,8 @@ We adopted the gathered mode in the experiments, which assumes that all replica 
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.3] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
+      { \includegraphics[scale=0.35] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.3]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}}
 \caption{Impact of Warehouse number on Performance (TPC-C)}
 \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather}
 \end{figure}
@@ -970,11 +924,8 @@ We adopted the gathered mode in the experiments, which assumes that all replica 
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.3] {figure/plot_tpcc_neworder_add_HotItem_HotItem_TPM_gather} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:tpm}}
+      { \includegraphics[scale=0.35] {figure/plot_tpcc_neworder_add_HotItem_HotItem_TPM_gather} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:tpm}}
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.3]{figure/plot_tpcc_neworder_add_HotItem_HotItem_Abort_gather} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:abort}}
 \caption{Impact of Hot Spot on Performance (TPC-C)}
 \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather}
 \end{figure}
@@ -989,7 +940,7 @@ Fig.~\ref{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather} shows the results.
 From Fig.~\ref{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather} and
 Fig.~\ref{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather},
 we can see that contention had a big impact on performance. When the degree of contention decreased, the throughput rose quickly.
-The DLVs performed better than S2PL in general, as lock violation had shortened their lock holding time, especially when the degree of contention is high.
+The DLVs performed better than S2PL in general, as lock violation had shortened their lock blocking time, especially when the degree of contention is high.
 However, the different DlVs demonstrated different performance characteristics. 
 While DLV0 and DLV1 performed well when there is less contention, their performance dropped when the contention intensified.
 This is because contention increases their chance of encountering deadlocks.
@@ -1001,12 +952,9 @@ In contrast, DLV1x outperformed the other approaches constantly, as it was less 
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[YCSB workload TPM]
-      { \includegraphics[scale=0.3] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}}
+      { \includegraphics[scale=0.35] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}}
 
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[YCSB workload abort rate]
-      { \includegraphics[scale=0.3]{figure/plot_ycsb_add_Theta_Theta_Abort_gather.pdf} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}}
+
 
 \caption{Impact of theta on Performance (YCSB)}
 \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather}
@@ -1050,20 +998,13 @@ Among all the variants of DLV, DLV1x demonstrated the most constant performance.
 %When the test reaches the maximum number of concurrent terminals, DLV1x is twice as the throughput of S2PL.
 
 
-
-
-  
-
-
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.3] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}}
 
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.3]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}}
+      { \includegraphics[scale=0.35] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}
+      
+      }
 
 \caption{Performance in Gathered Mode (TPC-C) }
 \label{fig:new_order_add_terminal_gathered}
@@ -1072,12 +1013,9 @@ Among all the variants of DLV, DLV1x demonstrated the most constant performance.
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.3] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}}
 
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.3]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}}
+      { \includegraphics[scale=0.35] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}}
+
 
 \caption{Performance in the Scattered Mode (TPC-C) }
 \label{fig:new_order_add_terminal_scattered}
@@ -1097,12 +1035,9 @@ Therefore, DLV1x performed as well as DLV1 in the experiments, as it can enable 
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[]
-      { \includegraphics[scale=0.3] {figure/plot_interactive__tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:tpcc_add_terminal_interactive:tpm}}
 
-      \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[abort rate]
-      { \includegraphics[scale=0.3]{figure/plot_interactive__tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:tpcc_add_terminal_interactive:abort}}
+      { \includegraphics[scale=0.35] {figure/plot_interactive__tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:tpcc_add_terminal_interactive:tpm}}
+
       \caption{TPCC interactive transaction evaluation}
       \label{fig:interactive_evaluation}
       \end{figure}
@@ -1132,11 +1067,11 @@ In contrast, there is a significant chance of cascade abort for DLV1 and DLV0, e
 
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[no transactions access non-exist rows]
-      { \includegraphics[scale=0.2] {figure/plot__tpcc_neworder_add_NonExist_0.pdf} \label{fig:evaluation_cascade_abort:without_nonexist_row}}
+      { \includegraphics[scale=0.3] {figure/plot__tpcc_neworder_add_NonExist_0.pdf} \label{fig:evaluation_cascade_abort:without_nonexist_row}}
 
       \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[10\% transactions access non-exist rows]
-      { \includegraphics[scale=0.2]{figure/plot__tpcc_neworder_add_NonExist_10.pdf} \label{fig:evaluation_cascade_abort:nonexist_row}}
+      { \includegraphics[scale=0.3]{figure/plot__tpcc_neworder_add_NonExist_10.pdf} \label{fig:evaluation_cascade_abort:nonexist_row}}
 
 \caption{Cascade abort ratio, DD stands  for deadlock detection, and DP stands for deadlock prevention}
 \label{fig:evaluation_cascade_abort}
@@ -1151,43 +1086,26 @@ In contrast, there is a significant chance of cascade abort for DLV1 and DLV0, e
 
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[Deadlock detection]
-      { \includegraphics[scale=0.2] {figure/tpcc_neworder_add_Terminal_latency_Detection.pdf} \label{fig:evaluation_latency:deadlock_detection}}
+      { \includegraphics[scale=0.3] {figure/tpcc_neworder_add_Terminal_latency_Detection.pdf} \label{fig:evaluation_latency:deadlock_detection}}
 
       \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[Deadlock prevention]
-      { \includegraphics[scale=0.2]{figure/tpcc_neworder_add_Terminal_latency_WaitDie.pdf} \label{fig:evaluation_latency:deadlock_prevention}}
+      { \includegraphics[scale=0.3]{figure/tpcc_neworder_add_Terminal_latency_WaitDie.pdf} \label{fig:evaluation_latency:deadlock_prevention}}
 
 \caption{Transaction Latency}
 \label{fig:evaluation_latency}
 \end{figure}
 
-DLV cannot directly impact on transactions latency.
-Although DLV shorten the possible lock blocking time, it must wait its dependent transactions commit.
-We evaluation transacation latency using TPCC workload. 
-The warehouse nubmer was fixed to 40 and the terminal number was set to 10, 100 and 200.
-Different with other evaluation seting.
-Transaction was immediately retried five times after it aborted without wait.
-Only the average latency of committed transactions are consitered.
-We 
-
-
-\subsection{Non-availability Time After Failure}
-
-\begin{figure}[tbp]
-  \centering
-  \captionsetup[subfigure]{margin={0cm,0cm}}
-  { \includegraphics[scale=0.36] {figure/plot_availability}
-  \caption{non availability time after one AZ is down}
-  \label{fig:plot_availability:tpm}}
-\end{figure}
-
-
-Due to cascade abort, a GDDB may take more time to restart when a failure occurs.
-In our final set of experiments, we evaluated the non-availability time of the different approaches when encountering an AZ failure.
-Fig~\ref{fig:plot_availability:tpm} shows how throughput changes over time elapsed during one AZ failure.
-This result shows DLV0, DLV1 endures longer non-available time after an AZ failure.
-DLV2 and DLV1x have less non-available time. This is because late lock violation faces less cascade abort.
-
+DLV cannot directly impact transaction latency.
+Although DLV shortens the possible lock blocking time, it must wait for its dependent transactions to commit.
+We evaluated transaction latency on TPCC workload. 
+The warehouse number was fixed to 40, and the terminal number was set to 10, 100, and 200.
+Different from other previous evaluation settings, in this experiment,
+the transaction would be immediately retried five times after it aborted without a wait.
+Only the average latency of committed transactions are considered.
+We can see that transaction latency is mainly affected by the deadlock handling scheme and the load condition.
+The latency using deadlock prevention has less latency than using deadlock prevention on high load.
+The latency is very similar in the same setting. 
 
 \subsection{Experimental Conclusion}
 
@@ -1216,14 +1134,6 @@ When there is more idle resource, it is more rewarding to use aggressive lock vi
 In contrast, when a system reaches its saturation point, the system should switch to more conservative
 lock violation to avoid its overheads.
 Deciding opportunities to conduct DLV can be an interesting topic for future work.
-
-
-
-Distributed transaction remains a challenge to our research community. Recent progress of the HA technologies has made distributed transactions less vulnerable to failures.
-However, the performance of distributed transactions in general still falls short of many mission-critical applications' requirements.
-While lock violation is an effective technique to optimize distributed transactions, it is far from an ultimate solution.
-As we can see in our experimental evaluation, even with this optimization, distributed transactions' general performance is sometimes unsatisfactory.
-Considering the ever-increasing scale of modern Web applications, We believe that further research on distributed transaction is not only necessary but essential.
 
 
 
