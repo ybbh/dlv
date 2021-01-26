@@ -271,24 +271,23 @@ Many other works applied and evaluated ELR in different types of systems
 %{change begin}
 
 \begin{highlighted}
- \cite{CLV:conf/sigmod/GraefeLKTV13} 
-CLV is a competitor of ELR. 
+
+ CLV further advanced ELR. 
  It is simpler, more robust, and more precise than ELR.
- It allows specific transactions to ignore conflict locks instead of releasing a lock completely.
- ELR can only optimize the two-phase commit's final phase, but CLV can optimize both phases of the two-phase commit.
- CLV is the most related paper of our work.
- Although CLV can adapt to distributed transactions, 
- how to apply CLV to the distributed database is still challenging.
- CLV needs a Register and Report (RARA) approach \cite{HeckatonMVCC:journals/pvldb/LarsonBDFPZ11} to implement the tracer.
+ It allows transactions to selectively ignore locks instead of releasing a lock completely.
+ By definition, ELR  applies only to the second phase of 2PC, while CLV applies to both phases.
+ In this sense, CLV is more related our work.
+
+ Although CLV can be extended to work with distributed systems, 
+ how to use lock violation to empower distributed transactions still remains as a challenge.
+ CLV adopts a Register and Report (RARA) approach \cite{HeckatonMVCC:journals/pvldb/LarsonBDFPZ11} to trace dependencies among transactions.
  RARA works well on a centralized database. 
- But in a distributed environment, dependency tracing becomes much more costly.
- Cascade abort is another side effect of speculation. 
- It can also lead to severe performance downgrade for distributed databases.
- Handling deadlock in a distributed environment is challenging and costly, and how CLV adapts to deadlocking handling rules is not apparent.
- CLV lacks adequate information on how to flip it from a centralized database to a distributed one. 
- Moreover, the performance of different lock violation timing and their restriction is still unexplored.
- Finally,   the increasing prosperity of fault-tolerant geo-replicated databases has suffered high log replication latency.
- How CLV and other speculation ideas can improve the replicated system is interesting.
+ However, in a distributed environment, dependency tracing becomes much more costly.
+ Cascade abort is another challenge for lock violation. 
+ Excessive cascade aborts can lead to severe performance downgrade.
+ Handling deadlock in a distributed environment is also challenging. It is not apparent what is the adequate way to deal with deadlock when lock violation is applied.
+ Moreover, there are different timings for performing lock violation in a GRDB. Selection of the best timing is an unexplored topic.
+ 
 \end{highlighted}
 %{change end}
 
@@ -1113,16 +1112,16 @@ In contrast, there is a significant chance of cascade abort for DLV1 and DLV0, e
 \end{figure}
 
 \begin{highlighted}
-DLV cannot directly impact transaction latency.
-Although DLV shortens the possible lock blocking time, it must wait for its dependent transactions to commit.
-We evaluated transaction latency on TPCC workload. 
-The warehouse number was fixed to 40, and the terminal number was set to 10, 100, and 200.
-Different from other previous evaluation settings, in this experiment,
-the transaction would be immediately retried five times after it aborted without a wait.
-Only the average latency of committed transactions are considered.
-We can see that transaction latency is mainly affected by the deadlock handling scheme and the load condition.
-The latency using deadlock prevention has less latency than using deadlock prevention on high load.
-The latency is very similar in the same setting. 
+  DLV does not have a direct impact on transaction latency.
+  Although DLV can reduce the chance of blocking, a transaction still has to wait for all its preceding transactions to finish before it can commit.
+  We conducted a set of experiments to profile the transaction latency of different DLV approaches on TPC-C. 
+  In the experiments, the warehouse number of TPC-C was fixed to 40, and the terminal number was set to 10, 100, and 200, respectively.
+  During the experiments, a transaction would be immediately retried after it was abort.
+  The average execution time of committed transactions was calculated as the transaction latency. The results are shown in Fig. \ref{fig:evaluation_latency}.
+  
+  We can see that the transaction latency is mainly affected by the deadlock handling cost and the workload.
+  In general, deadlock prevention incurs less overhead and results in better latency than deadlock detection. If we increase the workload, the latency can grow quite rapidly.
+  In contrast, if the same deadlock handling method is applied and the workload is fixed, the average transaction latencies of different approaches are actually similar. 
 
 \end{highlighted}
 \subsection{Experimental Conclusion}
