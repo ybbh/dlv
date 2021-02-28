@@ -34,6 +34,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
+\iffalse
 \begin{frame}{\relax}%>>>
 
   \textbf{Response Letter}  
@@ -146,6 +147,8 @@ In the revised version (Section III.A), we used a different pair of terminology 
 
 \end{frame}%<<<
 
+\fi 
+
 \title{Lock Violation for Fault-tolerant Distributed Database System}
 
 
@@ -156,7 +159,8 @@ Beijing, China \\
 guohua2016@ruc.edu.cn}
 \and
 \IEEEauthorblockN{Xuan Zhou}
-\IEEEauthorblockA{\textit{School of Data Science And Engineering} \\
+\IEEEauthorblockA{
+\textit{Shanghai Engineering Research Center of Big Data Management} \\
 \textit{East China Normal University}\\
 Shanghai, China \\
 xzhou@dase.ecnu.edu.cn}
@@ -239,8 +243,7 @@ Once a \emph{RM} receives the final decision from the \emph{TM}, it also needs t
 Only at this moment can the GDDB reach a consensus about commit or abort.
 Then, the \emph{RM} can release the locks it had retained over the accessed data.
 Finally, \emph{TM} replicate an `end' log to finish the transaction and clean the transaction context.
-\begin{highlighted}
-
+%\begin{highlighted}
 
 In a replicated DB, if a \emph{RM} releases its locks immediately after receiving the commit message and before persisting its decision, linearizability may not be guaranteed. 
 The following is a situation:
@@ -251,8 +254,8 @@ a second transaction ${R}$ reads ${T}$'s write on ${x}$ and commits successfully
 (4) After the node recovers, the \emph{RM} re-enters an uncertain state, as it cannot remember it has received a commit message. At this time, as the lock has been released, a third transaction ${S}$ may choose to read an older version of ${x}$, which may lead to violation of linearizability.
 
 
-\end{highlighted}
-\begin{highlighted}
+%\end{highlighted}
+%\begin{highlighted}
 Lock duration of transaction commit in such an architecture, i.e., the red line in Fig.~\ref{fig:message_flow}, involves multiple messages round trips over the WAN.
 And there were also messages between LAN.
 Different network environment has different RTT(round trip time).
@@ -263,7 +266,7 @@ On different continents, the RTT could be 98.6ms(from Virginia to Frankfurt), 20
 Geo-replication can remarkably amplify lock duration and worsen the contention among transactions.
 Consider that the RRT over a geo-distributed WAN is around 30-200 milliseconds during a transaction. 
 This vast difference of RTT between WAN and LAN lets us consider exploiting the speculative technique to reduce lock blocking.
-\end{highlighted}
+%\end{highlighted}
 Speculative techniques, such as Early Lock Release (ELR) \cite{EfficientLocking:conf/vldb/KimuraGK12} and Controlled Lock Violation (CLV)
 \cite{CLV:conf/sigmod/GraefeLKTV13}, prove to be effective in optimizing centralized transaction processing.
 They aim at improving concurrency by excluding data persistence (i.e., logging) from lock duration.
@@ -281,7 +284,8 @@ Moreover, not all transactions can benefit from CLV or ELR, e.g., workload with 
 It is unnecessary and even harmful to apply speculation to all cases.
 
 The contribution of this paper can be summarized as follows:
-\begin{highlighted}
+
+%\begin{highlighted}
   
 
 1. To the best of our knowledge, this is the first study of lock violation on GDDB.
@@ -293,7 +297,7 @@ Cascade abort, dependency tracing, deadlock handling, and storage impleme
 DLV considers several different time windows to perform lock violation.
 Based on the timing of lock violation, DLV adopts different methods of dependency tracing and deadlock handling accordingly to minimize the overheads.
 We evaluated the different design choices of DLV and obtained a generalization about their best application scenarios, respectively.
-\end{highlighted}
+%\end{highlighted}
 
 We organized the remainder of this paper as follows.
 Section \ref{sec:relate_work} reviews the related work.
@@ -372,7 +376,7 @@ Many other works applied and evaluated ELR in different types of systems
 \cite{Aether:journals/pvldb/JohnsonPSAA10}.
 
 
-\begin{highlighted}
+%\begin{highlighted}
 
 CLV further advanced ELR. 
 It is simpler, more robust, and more precise than ELR.
@@ -390,7 +394,7 @@ Excessive cascade aborts can lead to severe performance downgrade.
 Handling deadlock in a distributed environment is also challenging. It is not apparent what is the adequate way to deal with deadlock when lock violation is applied.
 Moreover, there are different timings for performing lock violation in a GRDB. Selection of the best timing is an unexplored topic.
  
-\end{highlighted}
+%\end{highlighted}
 
 There is little research on applying the speculation to GDDB, while the potential rewards seem ample. This motivated us to look further into this issue.
 
@@ -408,14 +412,14 @@ Physiological logs, which record row-level write operations, are transmitted amo
 A consensus protocol is used to prevent synchronization from going wrong.
 We assume that each data shard is assigned a leader who is responsible for coordinating its synchronization process.
 
-\begin{highlighted}
+%\begin{highlighted}
 We define two types of distributed transactions,  deterministic prepared (DP) transactions, and non-deterministic prepared (NDP) transactions.
 If a transaction knows that it will not violate serializability before issuing the prepare message, it is a DP transaction. Otherwise, it is an NDP transaction. 
 In other words, in a DP transaction, if a \emph{RM} receives a prepare message, it knows that other \emph{RM}s will all be prepared.
 We can categorize most interactive transactions as DP transactions.
 Fig.~\ref{fig:transaction_type} shows the message flow during the commit phase of the two types of transactions.
 How DLV applies to DP and NDP transactions would be discussed later.
-\end{highlighted}
+%\end{highlighted}
 
 
 
@@ -633,7 +637,7 @@ In a GDDB in gathered leader mode(replicas leader are enforced in the same AZ), 
 
 Fig.~\ref{fig:lock_violation_time} illustrates the different timings of lock violation.
 
-\begin{highlighted}
+%\begin{highlighted}
 DLV1x adds a serializability test message round trip to the 2PC message flow.
 %{change begin}
 In this round trip, a \emph{RM} responds \emph{Violate Vote Yes} if it has executed all its access successfully.
@@ -669,7 +673,7 @@ Third, if early violation relies on dependency tracing to ensure serializability
 Whether early or late violation is adopted, we need to trace the commit dependencies among transactions to ensure the commit order (or recoverability).
 However, early violation needs to trace all \emph{rw, ww, wr} dependencies, while late violation only needs to trace \emph{wr} dependencies.
 
-\end{highlighted}
+%\end{highlighted}
 
 \begin{figure}[tbp]
   \centerline{\includegraphics[scale=0.6]{figure/lock_violation_safe.pdf}}
@@ -696,7 +700,7 @@ A ${RM}$ will not vote to commit (or prepare commit) if its ${in}$ dependency co
 When a transaction aborts, it notifies all its out-dependency transactions to abort (cascade abort) by setting their ${in}$ dependency counts to a negative value.
 (If a transaction finds that one of its ${in}$ dependency counts is negative, it will abort automatically.)
 When a transaction commits, it will traverse its ${out}$ sets and decrease the corresponding ${in}$ value of each transaction in the ${out}$ set by one.
-\begin{highlighted}
+%\begin{highlighted}
 
 Note that each $RM$ node independently maintains the dependency information locally.
 We do not allow a ${RM}$ to enter an undecidable state (e.g., the `prepare commit' state) before its in-dependency count ${in}$ becomes zero.
@@ -710,7 +714,7 @@ When a node fails, all the un-prepared ${RM}$s on the node can simply vote to ro
 In this case, both the ${in}$ values and the ${out}$ sets on the node become useless.
 Therefore, the system only needs to preserve the dependency information in memory without persisting it to stable storage.
 
-\end{highlighted}
+%\end{highlighted}
 \subsection{Cascade Abort Handling}
 When a cascade abort occurs,
 we need to undo a number of transactions.
@@ -946,23 +950,24 @@ We increased the number of user terminals until the throughput of the database r
 The results of the experiments are shown in Fig.~\ref{fig:ycsb_deadlock} 
 
 
-
 \begin{figure}[tbp]
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB TPM]
-      { \includegraphics[scale=0.35] {figure/plot_ycsb_add_Terminal_Terminal_TPM_gather} \label{fig:ycsb_add_terminal_gathered:tpm}}
-
+      { \includegraphics[scale=0.32] {figure/plot_ycsb_terminal_g_o_tpm} \label{fig:ycsb_add_terminal_gathered:tpm}
+      
       \captionsetup[subfigure]{margin={0cm,0cm}}
-  \subfloat[YCSB abort rate]
-      { \includegraphics[scale=0.35]{figure/plot_ycsb_add_Terminal_Terminal_Abort_gather} \label{fig:ycsb_add_terminal_gathered:abort}}
+      
+      }
+      \subfloat[YCSB abort rate]
+      { \includegraphics[scale=0.32]{figure/plot_ycsb_terminal_g_o_abort} \label{fig:ycsb_add_terminal_gathered:abort}
+      \captionsetup[subfigure]{margin={0cm,0cm}}
+      }
+      \caption{Impact of Geo-distance on Performance (YCSB) }
+      \caption{Deadlock Detection vs. Deadlock Prevention: impact of varying workload
+      ($(d)$ indicates adoption of deadlock detection. $(p)$ indicates adoption of deadlock prevention. ) }
+      \label{fig:ycsb_deadlock}
 
-
-            
-
-\caption{Deadlock Detection vs. Deadlock Prevention: impact of varying workload
-($(d)$ indicates adoption of deadlock detection. $(p)$ indicates adoption of deadlock prevention. ) }
-\label{fig:ycsb_deadlock}
 \end{figure}
 
       
@@ -970,10 +975,10 @@ As we can see, there was no dominant winner. It is quite clear that deadlock det
 and deadlock prevention works better for late lock violation, i.e., DLV1x and DLV2. This result is consistent with our analysis in Section~\ref{sec:deadlock_handling}.
 Deadlock detection can be expensive when there is a high degree of contention. In contrast, deadlock prevention will incur a high abort rate to early lock violation.
 We can see that if deadlock prevention is used, DLV0 and DLV1 cannot even outperform S2PL. 
-\begin{highlighted}
+%\begin{highlighted}
 Deadlock detection does not scale well when the system is saturated.
 As we can see, early lock violation could not scale to more than 200 terminals, but late lock violation could.
-\end{highlighted}
+%\end{highlighted}
 Nevertheless, a number of the DLV variants can outperform S2PL significantly. This means that lock violation can improve the performance of a GDDB.
 
 Based on these results, in the rest of the evaluation, we applied deadlock detection to DLV0 and DLV1, and deadlock prevention to DLV1, DLV2, and S2PL, respectively,
@@ -1004,13 +1009,13 @@ The result shows that DLV1x could deal with contention better than DLV2 and S2PL
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB TPM]
-      { \includegraphics[scale=0.20] {figure/plot_ycsb_add_LogForceT_LogForceT_TPM_gather} \label{fig:new_order_add_log_cost:tpm}
+      { \includegraphics[scale=0.32] {figure/plot_ycsb_latency_g_o_tpm} \label{fig:new_order_add_log_cost:tpm}
       
       \captionsetup[subfigure]{margin={0cm,0cm}}
       
       }
       \subfloat[YCSB abort rate]
-      { \includegraphics[scale=0.20]{figure/plot_ycsb_add_LogForceT_LogForceT_Abort_gather} \label{fig:new_order_add_log_cost:abort}
+      { \includegraphics[scale=0.32]{figure/plot_ycsb_latency_g_o_abort} \label{fig:new_order_add_log_cost:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
       \caption{Impact of Geo-distance on Performance (YCSB) }
@@ -1032,13 +1037,13 @@ We adopted the gathered mode in the experiments, which assumes that all replica 
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.20] {figure/plot_tpcc_neworder_add_Warehouse_Warehouse_TPM_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}
+      { \includegraphics[scale=0.32] {figure/plot_tpcc_warehouse_g_o_tpm} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:tpm}
       
       \captionsetup[subfigure]{margin={0cm,0cm}}
       
       }
       \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.20]{figure/plot_tpcc_neworder_add_Warehouse_Warehouse_Abort_gather} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}
+      { \includegraphics[scale=0.32]{figure/plot_tpcc_warehouse_g_o_abort} \label{fig:plot_tpcc_neworder_add_Warehouse_Warehouse_gather:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
       \caption{Impact of Warehouse number on Performance (TPC-C) }
@@ -1052,13 +1057,13 @@ We adopted the gathered mode in the experiments, which assumes that all replica 
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.20] {figure/plot_tpcc_neworder_add_HotItem_HotItem_TPM_gather} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:tpm}
+      { \includegraphics[scale=0.32] {figure/plot_tpcc_hotitem_g_o_tpm} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:tpm}
       
       \captionsetup[subfigure]{margin={0cm,0cm}}
       
       }
       \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.20]{figure/plot_tpcc_neworder_add_HotItem_HotItem_Abort_gather} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:abort}
+      { \includegraphics[scale=0.32]{figure/plot_tpcc_hotitem_g_o_abort} \label{fig:plot_tpcc_neworder_add_HotItem_HotItem_gather:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
       \caption{Impact of Hot Spot on Performance (TPC-C) }
@@ -1091,13 +1096,13 @@ In contrast, DLV1x outperformed the other approaches constantly, as it was less 
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB TPM]
-      { \includegraphics[scale=0.20] {figure/plot_ycsb_add_Theta_Theta_TPM_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}
+      { \includegraphics[scale=0.32] {figure/plot_tpcc_theta_g_o_tpm} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}
       
       \captionsetup[subfigure]{margin={0cm,0cm}}
       
       }
       \subfloat[YCSB abort rate]
-      { \includegraphics[scale=0.20]{figure/plot_ycsb_add_Theta_Theta_Abort_gather} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}
+      { \includegraphics[scale=0.32]{figure/plot_tpcc_theta_g_o_abort} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
       \caption{Impact of theta on Performance (YCSB) }
@@ -1148,13 +1153,13 @@ Among all the variants of DLV, DLV1x demonstrated the most constant performance.
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.20] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:new_order_add_terminal_gathered:tpm}
+      { \includegraphics[scale=0.32] {figure/plot_tpcc_terminal_g_o_tpm} \label{fig:new_order_add_terminal_gathered:tpm}
       
       \captionsetup[subfigure]{margin={0cm,0cm}}
       
       }
       \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.20]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:new_order_add_terminal_gathered:abort}
+      { \includegraphics[scale=0.32]{figure/plot_tpcc_terminal_g_o_abort} \label{fig:new_order_add_terminal_gathered:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
       \caption{Performance in Gathered Mode (TPC-C) }
@@ -1168,13 +1173,13 @@ Among all the variants of DLV, DLV1x demonstrated the most constant performance.
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[NewOrder TPM]
-      { \includegraphics[scale=0.20] {figure/plot_tpcc_neworder_add_Terminal_Terminal_TPM_scatter} \label{fig:new_order_add_terminal_scattered:tpm}
+      { \includegraphics[scale=0.32] {figure/plot_tpcc_terminal_s_o_tpm} \label{fig:new_order_add_terminal_scattered:tpm}
       
       \captionsetup[subfigure]{margin={0cm,0cm}}
       
       }
       \subfloat[NewOrder abort rate]
-      { \includegraphics[scale=0.20]{figure/plot_tpcc_neworder_add_Terminal_Terminal_Abort_scatter} \label{fig:new_order_add_terminal_scattered:abort}
+      { \includegraphics[scale=0.32]{figure/plot_tpcc_terminal_s_o_abort} \label{fig:new_order_add_terminal_scattered:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
       \caption{Performance in the Scattered Mode (TPC-C) }
@@ -1185,7 +1190,7 @@ Among all the variants of DLV, DLV1x demonstrated the most constant performance.
 
 \subsection{Evaluation of Interactive Transactions}
 
-\begin{highlighted}
+%\begin{highlighted}
 %change begin
 
 To evaluate the performance of the lock violation on interactive transactions,
@@ -1195,7 +1200,7 @@ Fig \ref{fig:interactive_evaluation} shows the results.
 As mentioned earlier, most interactive transactions are DP transactions.
 A DP transaction is determined to be prepared when the \emph{RM}s receive the prepare message.
 Therefore, DLV1x performed as well as DLV1 in the experiments, as it can enable lock violation as early as DLV1.
-\end{highlighted}
+%\end{highlighted}
 
 \begin{figure}[tbp]
   \centering
@@ -1217,7 +1222,7 @@ Therefore, DLV1x performed as well as DLV1 in the experiments, as it can enable 
 
 
 \subsection{Evaluation of Cascade Abort}
-\begin{highlighted}
+%\begin{highlighted}
 DLV suffers from cascade abort. In comparison, early lock violation is more vulnerable to cascade abort than
 late lock violation.
 To evaluate the cost of cascade abort on different approaches of lock violation, we conducted additional experiments on TPC-C, in which the number of warehouses was fixed to 40  and the terminal number to 200.
@@ -1235,19 +1240,19 @@ shows the abort rates under a modified TPC-C workload, in which each transaction
 As we can see, S2PL, DLV2, and DLV1x seldom encounter cascade aborts, no matter whether deadlock detection or deadlock prevention is applied. 
 In contrast, there is a significant chance of cascade abort for DLV1 and DLV0, especially when deadlock detection is applied. Deadlock prevention encounters fewer cascade aborts because it tends to abort transactions earlier before cascade abort kicks in. The total abort rates incurred by deadlock prevention were always higher than those by dead detection.
 
-\end{highlighted}
+%\end{highlighted}
 
 \begin{figure}[tbp]
   \centering
 
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[\small no transactions access non-exist rows]
-      { \includegraphics[scale=0.25] {figure/plot__tpcc_neworder_add_NonExist_0.pdf} \label{fig:evaluation_cascade_abort:without_nonexist_row}
+      { \includegraphics[scale=0.26] {figure/plot__tpcc_neworder_add_NonExist_0.pdf} \label{fig:evaluation_cascade_abort:without_nonexist_row}
 
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
   \subfloat[\small 10\% transactions access non-exist rows]
-      { \includegraphics[scale=0.25]{figure/plot__tpcc_neworder_add_NonExist_10.pdf} \label{fig:evaluation_cascade_abort:nonexist_row}
+      { \includegraphics[scale=0.26]{figure/plot__tpcc_neworder_add_NonExist_10.pdf} \label{fig:evaluation_cascade_abort:nonexist_row}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
 
@@ -1265,16 +1270,16 @@ In contrast, there is a significant chance of cascade abort for DLV1 and DLV0, e
 
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[Deadlock detection]
-      { \includegraphics[scale=0.28] {figure/tpcc_neworder_add_Terminal_latency_Detection.pdf} \label{fig:evaluation_latency:deadlock_detection}
+      { \includegraphics[scale=0.26] {figure/tpcc_neworder_add_Terminal_latency_Detection.pdf} \label{fig:evaluation_latency:deadlock_detection}
       }
   \subfloat[Deadlock prevention]
-      { \includegraphics[scale=0.28]{figure/tpcc_neworder_add_Terminal_latency_WaitDie.pdf} \label{fig:evaluation_latency:deadlock_prevention}}
+      { \includegraphics[scale=0.26]{figure/tpcc_neworder_add_Terminal_latency_WaitDie.pdf} \label{fig:evaluation_latency:deadlock_prevention}}
 
 \caption{Transaction Latency}
 \label{fig:evaluation_latency}
 \end{figure}
 
-\begin{highlighted}
+%\begin{highlighted}
   DLV does not have a direct impact on transaction latency.
   Although DLV can reduce the chance of blocking, a transaction still has to wait for all its preceding transactions to finish before it can commit.
   We conducted a set of experiments to profile the transaction latency of different DLV approaches on TPC-C. 
@@ -1286,8 +1291,10 @@ In contrast, there is a significant chance of cascade abort for DLV1 and DLV0, e
   In general, deadlock prevention incurs less overhead and results in better latency than deadlock detection. If we increase the workload, the latency can grow quite rapidly.
   In contrast, if the same deadlock handling method is applied and the workload is fixed, the average transaction latencies of different approaches are actually similar. 
 
-\end{highlighted}
+%\end{highlighted}
+\iffalse
 \subsection{Non-availability Time After Failure}
+
 
 \begin{figure}[tbp]
   \centering
@@ -1303,6 +1310,8 @@ In our final set of experiments, we evaluated the non-availability time of the d
 Fig~\ref{fig:plot_availability:tpm} shows how throughput changes over time elapsed during one AZ failure.
 This result shows DLV0, DLV1 endures longer non-available time after an AZ failure.
 DLV2 and DLV1x have less non-available time. This is because late lock violation faces less cascade abort.
+\fi
+
 \subsection{Experimental Conclusion}
 
 In conclusion, our experimental evaluation showed that the geo-replication could have a big negative impact on distributed transactions' performance.
@@ -1323,7 +1332,7 @@ In this paper, we proposed such a holistic design and conducted experiments to e
 The results showed that lock violation could boost the performance of a geo-replicated distributed database, especially when the degree of contention is high.
 Moreover, we found that not all lock violation approaches can be beneficial. We identified the right design of lock violation to maximize its effects.
 
-\begin{highlighted}
+%\begin{highlighted}
 
 DLV cannot reduce transactions' latencies, while it enables better throughputs.
 It can consolidate the wait of transaction execution, especially that in the commit phase.
@@ -1333,7 +1342,13 @@ lock violation to avoid its overheads.
 Deciding opportunities to conduct DLV can be an interesting topic for future work.
 
 
-\end{highlighted}
+%\end{highlighted}
+
+\section*{Acknowledgement}
+We want to thank the anonymous reviewers for the valuable comments in helping improve the paper.
+This work was supported by Alibaba Group through Alibaba Innovative Research (AIR) Program and partially supported by the NSFC Project No. 61772202.
+
+
 \bibliographystyle{reference/IEEEtran}
 \bibliography{reference/IEEEexample}
 
