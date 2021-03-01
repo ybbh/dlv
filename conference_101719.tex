@@ -990,7 +990,7 @@ as such configuration can maximize the performance of all the competing approach
 In the second set of experiments, we evaluated how geo-replication affects the performance of transaction processing.
 We simulated geo-replication in a single AZ.
 Namely, we put all replicas in the same AZ and artificially increased the replicas' communication latency.
-We used the YCSB workload, in which we set the size of the data to 400,000 rows and the skewness (theta) to 0.2.
+We used the YCSB workload, in which we set the size of the data to 40,000 rows and the skewness (theta) to 0.2.
 Fig.~\ref{fig:new_order_add_log_cost} shows how the throughput and the abort rate changed with the increased replication latency.
 Geo-replication has a great impact on performance. The higher the replication latency, the lower the throughput of transaction processing.
 
@@ -1096,13 +1096,13 @@ In contrast, DLV1x outperformed the other approaches constantly, as it was less 
   \centering
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[YCSB TPM]
-      { \includegraphics[scale=0.32] {figure/plot_tpcc_theta_g_o_tpm} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}
+      { \includegraphics[scale=0.32] {figure/plot_ycsb_theta_g_o_tpm} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:tpm}
       
       \captionsetup[subfigure]{margin={0cm,0cm}}
       
       }
       \subfloat[YCSB abort rate]
-      { \includegraphics[scale=0.32]{figure/plot_tpcc_theta_g_o_abort} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}
+      { \includegraphics[scale=0.32]{figure/plot_ycsb_theta_g_o_abort} \label{fig:plot_ycsb_add_Theta_Theta_TPM_gather:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
       \caption{Impact of theta on Performance (YCSB) }
@@ -1207,12 +1207,12 @@ Therefore, DLV1x performed as well as DLV1 in the experiments, as it can enable 
   \captionsetup[subfigure]{margin={0cm,0cm}}
   \subfloat[TPCC interactive transactions TPM]
     { 
-      \includegraphics[scale=0.20] {figure/plot_interactive__tpcc_neworder_add_Terminal_Terminal_TPM_gather} \label{fig:tpcc_add_terminal_interactive:tpm}
+      \includegraphics[scale=0.32] {figure/plot_tpcc_hotitem_g_i_tpm} \label{fig:tpcc_add_terminal_interactive:tpm}
       \captionsetup[subfigure]{margin={0cm,0cm}}
     }
     \subfloat[TPCC interactive transactions abort rate]
     { 
-      \includegraphics[scale=0.20]{figure/plot_interactive__tpcc_neworder_add_Terminal_Terminal_Abort_gather} \label{fig:tpcc_add_terminal_interactive:abort}
+      \includegraphics[scale=0.32]{figure/plot_tpcc_hotitem_g_i_abort} \label{fig:tpcc_add_terminal_interactive:abort}
       \captionsetup[subfigure]{margin={0cm,0cm}}
       }
     \caption{TPCC interactive transaction evaluation}
