@@ -150,7 +150,10 @@ In the revised version (Section III.A), we used a different pair of terminology 
 
 \fi 
 
-\title{Lock Violation for Fault-tolerant Distributed Database System}
+\title{Lock Violation for Fault-tolerant Distributed Database System*\\
+\thanks{This work was supported by Alibaba Group through Alibaba Innovative Research (AIR) Program. This work was partially supported by the NSFC Project No. 61772202.
+}
+}
 
 
 \author{\IEEEauthorblockN{Hua Guo}
@@ -515,19 +518,19 @@ By violating strictness, ${H_2}$  enables a higher degree of concurrency.
 
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=0.8]{schedule_non_strict.pdf}}
+  \centerline{\includegraphics[scale=1]{schedule_non_strict.pdf}}
   \caption{A non-strict but serializabile schedule ${H_2}$}
   \label{fig:non_strict_example}
 \end{figure}
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=0.8]{schedule_not_serializabile.pdf}}
+  \centerline{\includegraphics[scale=1]{schedule_not_serializabile.pdf}}
   \caption{Schedule ${H_3}$, ${T_1}$ abort due to non-serializabile}
   \label{fig:schedule_abort_example}
 \end{figure}
 
 \begin{figure}[tbp]
-  \centerline{\includegraphics[scale=0.8]{schedule_not_recoverable.pdf}}
+  \centerline{\includegraphics[scale=1]{schedule_not_recoverable.pdf}}
   \caption{Schedule ${H_4}$, ${T_2}$ commit ahead ${T_1}$, non-recoverable anomaly}
   \label{fig:schedule_not_recoverable}
 \end{figure}
@@ -1349,11 +1352,8 @@ lock violation to avoid its overheads.
 Deciding opportunities to conduct DLV can be an interesting topic for future work.
 
 
-%\end{highlighted}
-
-\section*{Acknowledgement}
+\section*{Acknowledgment}
 We want to thank the anonymous reviewers for the valuable comments in helping improve the paper.
-This work was supported by Alibaba Group through Alibaba Innovative Research (AIR) Program and partially supported by the NSFC Project No. 61772202.
 
 
 \bibliographystyle{reference/IEEEtran}
