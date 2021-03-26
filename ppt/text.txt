@@ -1,0 +1,125 @@
+I'm Hua Guo from Renmin University of China.
+I would introduce our work "Lock Violation for Fault-tolerant Distributed Database System".
+The co-authors has Xuan Zhou from East China Normal University and Le Cai from Alibaba Group.
+
+Let's first look at the modern geo-replicated distributed database.
+This figure shows the architecture.
+The database scales horizontally by sharding their data across nodes.
+It builds its transactional layers on a replication layer,
+The replication layer replicated the log to multiple available-zones to achieve fault-tolerance.
+It also employs a consensus protocol to ensure data consistency.
+Synchronization among replicated state machines thus becomes a significant overhead of transaction processing.
+
+We want to optimized geo-replicated distributed database using two-phase lock and two phase commit.
+A transaction commit needs a lot of chatty messages during the commit.
+And most of the message would be the wide-area network message.
+This picture shows the message flow and lock duration.
+The two-phase procedure and the consensus protocol amplify lock duration and critical path.
+The red line in this picture shows the critical path.
+We know that there is a gap between WAN and LAN message latency.
+For LAN message, the latency is 0.1~0.2 milliseconds
+And the WAN message has a latency is about 30~200 milliseconds.
+Most time, the 2PC endures no WAN latency if the replica leader is in the same AZes.
+
+
+Our goal is to shorten the critical path and increase concurrency when encounter locks conflict.
+Most important, we must keep transaction and replication correctness and achieve performance.
+
+The basic idea is to consolidate many lock wait to a final one wait during distributed commit.
+The first line in this picture shows the normal case using locks; the transaction must be blocked when encountering conflict,
+it cannot process further access.
+And the second line shows the case use lock violation,
+a transaction needs no wait and can execute later operations.
+This idea of exploiting speculation is not new.
+
+The most related work of ours is  Controlled Lock Violation of Goetz Graefe et al..
+We extend CLV to a new application environment, GDDB, and we call it distributed lock violation(abbreviated as DLV).
+We want to know the proper violation time, how DLV adapts to the deadlock handling technique. 
+This is what CLV did not tell us.
+
+We want to get the correct criteria for lock violation.
+Serializability is a correct criterion for transaction processing.
+But serializability only tells concurrency control correctness.
+Strict is another correctness criteria for transaction processing.
+It relates to recovery.
+However, strict is not necessarily for correctness.
+We choose more loose criteria, recoverability.
+The figure shows a non-strict but recoverability schedule.
+Transaction 1, 2, and 3 access, x, y, z on nodes S1, S2, S3, 
+Transaction 2 read an uncommitted write value of transaction 1.
+Transaction 1 commits ahead of transaction 2, and this schedule is recoverable.
+
+We have several design considerations for DLV.
+First, we want to know the proper time to enable lock violation.
+Second, how we maintain the dependency.
+Third, how to combine lock violation with deadlock handling.
+Fourth, how storage affects lock violation's recoverability.
+We describe the first two here, and more would be found in our paper.
+
+We consider time enabling lock violation.
+DLV consider 4 violation time, 
+First is DLV0, which immediately enable violation after access
+The second is DLV1, in the first phase of 2PC.
+The third is DLV2, in the second phase of 2PC.
+The fourth DLV1x, after global certificated serializability of a transaction.
+The fourth is a special optimize for the transaction who cannot get the information if it can ensure global serializability.
+It can prevent a lot of possible aborts.
+We call that DLV0, DLV1 early violation,
+and DLV2, DLV1x late violation
+
+
+Dependency maintenance is another important considerations.
+We use a register and report technique to trace dependency.
+Each transaction RM maintains an in counter and an outer set.
+The in-counter records the number of transactions depends on it.
+The outer set records all the transaction has a dependency on this RM.
+When a transaction T violates another transaction S's lock,
+RM registers the commit dependency by adding T to the corresponding outer set of S
+and incrementing the corresponding in of T by one.
+RM will not prepare commit if its in-dependency counter is greater than 0.
+If a transaction commits, 
+it tests all transactions in its outer set with an in dependency counter equal 0.
+If it has, it will stop waiting for its dependency.
+If a transaction commits, 
+all its out dependency must abort, and this causes cascade abort.
+Notice that not all dependencies, 
+including read-write, write-read, and write-write, are necessary for all violation time.
+
+In the following content, we have our evaluations.
+We use 4 shards and each shard has 3 replicas.
+We first evaluate the YCSB benchmark， the skewness is 0.2
+We evaluate the impact of deadlock handling, replication latency, and contention.
+Other results can be found in our paper, including cascade abort, transaction latency.
+On the left, we show the result of YCSB performance when increasing terminal numbers.
+Deadlock detection and deadlock prevention are both shown.
+
+Deadlock detection can be expensive when there is a high degree of contention and high concurrency.
+In contrast, deadlock prevention will incur a high abort rate for early lock violation.
+For performance reasons,  we use deadlock detection for the early violation
+and deadlock prevention for late violation in the following evaluation.
+On the right-hand side, we show the impact of replication latency.
+DLV outperformed S2PL when the replication latency is high.
+
+
+This page shows the TPC-C benchmark evaluation.
+We evaluate the impact of contention by adding hotspot rows.
+When the degree of contention increased, the throughput decreased quickly.
+The DLVs performed better than strict two-phase lock in general, 
+especially when the degree of contention is high.
+We also evaluate the scalability of DLV.
+DLVs outperformed S2PL.
+And we found that 
+late violation performs better than early violation on scalability.
+
+
+Finally, we can draw our conclusion that:
+Geo-replication could have a big negative impact on performance.
+Lock violation could be an effective approach to shorten the critical path and boost performance.
+It is important to find the right time to violate the locks.
+When there is more idle resource, 
+it is more rewarding to use aggressive lock violation and deadlock detection to avoid false-positive abort.
+In contrast, when a system reaches its saturation point, 
+the system should switch to a more conservative lock violation to avoid its overheads.
+
+
+Thank you for listening, and I am willing to answer any questions.
